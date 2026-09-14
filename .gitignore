@@ -1,0 +1,62 @@
+# Dependencies
+/node_modules/
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+!.yarn/versions
+
+# Next.js
+/.next/
+/out/
+/build/
+
+# Testing (Playwright + Jest)
+/coverage/
+/test-results/
+/playwright-report/
+/playwright/.cache/
+/blob-report/
+
+# Auth sessions (Clerk storage state)
+.auth/
+*.auth.json
+
+# Environment files (PROTECT SECRETS)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# OS files
+.DS_Store
+*.pem
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Production artifacts
+/build/
+/out/

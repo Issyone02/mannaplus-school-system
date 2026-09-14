@@ -1,0 +1,124 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* === TABLE RESPONSIVE STYLES === */
+
+/* Table container with horizontal scroll */
+.table-container {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 0.5rem;
+}
+
+/* Table base styles */
+.responsive-table {
+  min-width: 100%;
+  width: 100%;
+  border-collapse: collapse;
+}
+
+/* Table header cells */
+.responsive-table th {
+  white-space: nowrap;
+  padding: 1rem 1.5rem;
+  font-weight: 700;
+  text-align: left;
+}
+
+/* Table body cells */
+.responsive-table td {
+  padding: 1rem 1.5rem;
+  white-space: nowrap;
+}
+
+/* Long text truncation with tooltip */
+.truncate-text {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.truncate-text:hover {
+  overflow: visible;
+  position: relative;
+  z-index: 10;
+}
+
+/* Mobile breakpoint - show scroll indicator */
+@media (max-width: 768px) {
+  .table-container {
+    position: relative;
+  }
+
+  .table-container::after {
+    content: "← Scroll →";
+    position: absolute;
+    bottom: 0.5rem;
+    right: 1rem;
+    font-size: 0.75rem;
+    color: #6b7280;
+    pointer-events: none;
+    animation: pulse 2s infinite;
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Utility classes for printing */
+.no-print {
+  display: block;
+}
+
+.print-only {
+  display: none;
+}
+
+/* Utility classes for printing */
+.no-print {
+  display: block;
+}
+
+/* Allow global faded background to show through page wrappers */
+.min-h-screen.bg-gray-50 {
+  background-color: rgba(249, 250, 251, 0.86) !important;
+}
+
+/* Keep the whole app background consistent */
+html,
+body {
+  min-height: 100%;
+  background-color: #f0fdf4;
+}

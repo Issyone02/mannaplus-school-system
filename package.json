@@ -1,0 +1,49 @@
+{
+  "name": "my-school-management-system",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:report": "playwright show-report",
+    "auth:refresh": "playwright test -c playwright.auth.config.ts --headed",
+    "test:debug": "playwright test --debug"
+  },
+
+  "dependencies": {
+    "@clerk/backend": "^3.10.0",
+    "@clerk/nextjs": "^7.5.12",
+    "@supabase/supabase-js": "^2.110.0",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.4.0",
+    "html2canvas": "^1.4.1",
+    "lucide-react": "^1.22.0",
+    "next": "16.2.9",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-hot-toast": "^2.6.0",
+    "recharts": "^3.9.1",
+    "resend": "^6.18.1",
+    "tailwind-merge": "^3.6.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20.19.43",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "cross-env": "^7.0.3",
+    "dotenv": "^17.4.2",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.9",
+    "tailwind": "^4.0.0",
+    "tailwind-scrollbar": "^4.0.2",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
