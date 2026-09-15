@@ -8,6 +8,7 @@ import UnifiedReportCard from '@/components/UnifiedReportCard'
 import ReportCardEditor from '@/components/ReportCardEditor'
 import { calculateClassPositions } from '@/lib/classPositions'
 import { getSchoolAssets, getClassTeacherSignature } from '@/lib/schoolAssets'
+import { enrichResultsWithPreviousTerms } from '@/lib/reportCardData'
 
 interface Subject { id: string; name: string; code: string; class_id: string; department: string | null; category: string; term: string; session: string; active: boolean }
 interface Result { id: string; student_id: string; student_name: string; admission_number: string; subject_id: string; subject_name: string; class_id: string; department: string | null; term: string; session: string; ca_score: number; exam_score: number; total_score: number; grade: string; remark: string; first_term_total?: number; second_term_total?: number; teacher_comment?: string; principal_comment?: string }
@@ -34,6 +35,7 @@ export default function ResultsPage() {
   const [positionInfo, setPositionInfo] = useState<{ position_text: string; total_students: number } | null>(null)
   const [editReportStudentId, setEditReportStudentId] = useState<string | null>(null)
   const [reportData, setReportData] = useState<any>(null)
+  const [printResultsEnriched, setPrintResultsEnriched] = useState<Result[]>([])
 
   const [searchTerm, setSearchTerm] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -405,6 +407,17 @@ export default function ResultsPage() {
       return r.student_id === studentId && (filterClassId === '' || resultClassId === filterClassId) && r.term === selectedTerm && r.session === selectedSession
     })
   }
+
+  // ✅ Enrich print-modal results with real First/Second Term totals
+  useEffect(() => {
+    const enrich = async () => {
+      if (!printStudentId) { setPrintResultsEnriched([]); return }
+      const base = getStudentResults(printStudentId)
+      const enriched = await enrichResultsWithPreviousTerms(base, printStudentId, selectedSession)
+      setPrintResultsEnriched(enriched)
+    }
+    enrich()
+  }, [printStudentId, selectedTerm, selectedSession, results])
 
   const downloadResultTemplate = () => {
     const csv = 'Admission Number,Subject Code,CA Score,Exam Score\nMP/JSS/001,ENG,30,55\nMP/JSS/001,MTH,28,50'
@@ -794,13 +807,20 @@ export default function ResultsPage() {
             <form onSubmit={handleAddResult} className="space-y-3">
               <select value={resultForm.student_id} onChange={(e) => setResultForm({...resultForm, student_id: e.target.value, subject_id: ''})} required className="w-full p-2 border rounded text-gray-900">
                 <option value="">Select Student</option>
-                {students.filter(s => s.class_id === selectedClass).map(s => <option key={s.id} value={s.id}>{s.full_name} ({s.admission_number}) {s.department ? `- ${s.department}` : ''}</option>)}
+                {(() => {
+                  const base = students.filter(s => s.class_id === selectedClass)
+                  const editingStudent = editingItem ? students.find(s => s.id === editingItem.student_id) : null
+                  const list = editingStudent && !base.some(s => s.id === editingStudent.id) ? [...base, editingStudent] : base
+                  return list.map(s => <option key={s.id} value={s.id}>{s.full_name} ({s.admission_number}) {s.department ? `- ${s.department}` : ''}</option>)
+                })()}
               </select>
               {/* ✅ FIXED: Subject Dropdown */}
               <select value={resultForm.subject_id} onChange={(e) => setResultForm({...resultForm, subject_id: e.target.value})} required className="w-full p-2 border rounded text-gray-900">
                 <option value="">Select Subject</option>
                 {(() => {
-                  const classSubjects = subjects.filter(s => s.class_id === selectedClass)
+                  const classSubjectsRaw = subjects.filter(s => s.class_id === selectedClass)
+                  const editingSubject = editingItem ? subjects.find(s => s.id === editingItem.subject_id) : null
+                  const classSubjects = editingSubject && !classSubjectsRaw.some(s => s.id === editingSubject.id) ? [...classSubjectsRaw, editingSubject] : classSubjectsRaw
                   const coreSubjects = classSubjects.filter(s => s.category === 'Core')
                   const deptSubjects = classSubjects.filter(s => s.category === 'Departmental')
                   return (
@@ -833,7 +853,7 @@ export default function ResultsPage() {
       )}
 
       {/* ✅ Unified Report Card Modal */}
-      {printStudent && printStudentResults.length > 0 && (
+      {printStudent && printResultsEnriched.length > 0 && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 relative">
             <button 
@@ -851,7 +871,7 @@ export default function ResultsPage() {
                 position: positionInfo ? `${positionInfo.position_text} of ${positionInfo.total_students}` : (reportData?.position_in_class || '-'),
                 no_in_class: reportData?.total_students_in_class || positionInfo?.total_students || '-'
               }}
-              results={printStudentResults}
+              results={printResultsEnriched}
               session={selectedSession}
               term={selectedTerm}
               attendance={{
@@ -870,6 +890,8 @@ export default function ResultsPage() {
               teacherSignatureUrl={signUrls.teacher}
               principalSignatureUrl={signUrls.principal}
               stampUrl={signUrls.stamp}
+              teacherDate={reportData?.teacher_date || null}
+              headTeacherDate={reportData?.head_teacher_date || null}
             />
           </div>
         </div>

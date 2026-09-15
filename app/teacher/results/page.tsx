@@ -11,6 +11,7 @@ import UnifiedReportCard from '@/components/UnifiedReportCard'
 import ReportCardEditor from '@/components/ReportCardEditor'
 import { calculateClassPositions } from '@/lib/classPositions'
 import { getSchoolAssets, getClassTeacherSignature } from '@/lib/schoolAssets'
+import { enrichResultsWithPreviousTerms } from '@/lib/reportCardData'
 
 interface Subject { id: string; name: string; code: string; class_id: string; department: string | null; category: string; term: string; session: string; active: boolean }
 interface ClassItem { id: string; class_name: string; arm: string | null; department: string | null; class_level: string }
@@ -55,6 +56,7 @@ export default function TeacherResultsPage() {
   const [editReportStudentId, setEditReportStudentId] = useState<string | null>(null)
   const [positionInfo, setPositionInfo] = useState<{ position_text: string; total_students: number } | null>(null)
   const [reportData, setReportData] = useState<any>(null)
+  const [printResultsEnriched, setPrintResultsEnriched] = useState<any[]>([])
   const [signUrls, setSignUrls] = useState<{ teacher?: string | null; principal?: string | null; stamp?: string | null }>({})
 
   const [resultForm, setResultForm] = useState({ student_id: '', subject_id: '', ca_score: '', exam_score: '' })
@@ -330,6 +332,17 @@ export default function TeacherResultsPage() {
   const printStudentClass = printStudent ? classes.find(c => c.id === printStudent.class_id) : null
   const printStudentResults = printStudentId ? getStudentResults(printStudentId) : []
 
+  // ✅ Enrich print-modal results with real First/Second Term totals
+  useEffect(() => {
+    const enrich = async () => {
+      if (!printStudentId) { setPrintResultsEnriched([]); return }
+      const base = getStudentResults(printStudentId)
+      const enriched = await enrichResultsWithPreviousTerms(base, printStudentId, selectedSession)
+      setPrintResultsEnriched(enriched)
+    }
+    enrich()
+  }, [printStudentId, selectedTerm, selectedSession, results])
+
   const editStudent = editReportStudentId ? students.find(s => s.id === editReportStudentId) : null
   const editStudentClass = editStudent ? classes.find(c => c.id === editStudent.class_id) : null
 
@@ -529,7 +542,12 @@ export default function TeacherResultsPage() {
             <form onSubmit={handleAddResult} className="space-y-3">
               <select value={resultForm.student_id} onChange={(e) => setResultForm({ ...resultForm, student_id: e.target.value, subject_id: '' })} required className="w-full p-2 border rounded text-gray-900">
                 <option value="">Select Student</option>
-                {students.filter(s => !selectedClass || s.class_id === selectedClass).map(s => <option key={s.id} value={s.id}>{s.full_name} ({s.admission_number})</option>)}
+                {(() => {
+                  const base = students.filter(s => !selectedClass || s.class_id === selectedClass)
+                  const editingStudent = editingItem ? students.find(s => s.id === editingItem.student_id) : null
+                  const list = editingStudent && !base.some(s => s.id === editingStudent.id) ? [...base, editingStudent] : base
+                  return list.map(s => <option key={s.id} value={s.id}>{s.full_name} ({s.admission_number})</option>)
+                })()}
               </select>
               <select value={resultForm.subject_id} onChange={(e) => setResultForm({ ...resultForm, subject_id: e.target.value })} required className="w-full p-2 border rounded text-gray-900">
                 <option value="">Select Subject</option>
@@ -546,7 +564,7 @@ export default function TeacherResultsPage() {
       )}
 
       {/* Unified Report Card Modal */}
-      {printStudent && printStudentResults.length > 0 && (
+      {printStudent && printResultsEnriched.length > 0 && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 relative">
             <button onClick={() => setPrintStudentId(null)} className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"><X size={24} /></button>
@@ -559,7 +577,7 @@ export default function TeacherResultsPage() {
                 position: positionInfo ? `${positionInfo.position_text} of ${positionInfo.total_students}` : (reportData?.position_in_class || '-'),
                 no_in_class: reportData?.total_students_in_class || positionInfo?.total_students || '-'
               }}
-              results={printStudentResults}
+              results={printResultsEnriched}
               session={selectedSession}
               term={selectedTerm}
               attendance={{
@@ -578,6 +596,8 @@ export default function TeacherResultsPage() {
               teacherSignatureUrl={signUrls.teacher}
               principalSignatureUrl={signUrls.principal}
               stampUrl={signUrls.stamp}
+              teacherDate={reportData?.teacher_date || null}
+              headTeacherDate={reportData?.head_teacher_date || null}
             />
           </div>
         </div>

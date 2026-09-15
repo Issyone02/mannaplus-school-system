@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import './globals.css';
 import { ClerkProvider } from '@clerk/nextjs';
 import Navbar from '@/components/Navbar';
@@ -9,7 +8,7 @@ import LayoutWrapper from '@/components/LayoutWrapper';
 import IdleTimeout from '@/components/IdleTimeout';
 import ConditionalFooter from '@/components/ConditionalFooter';
 
-const inter = Inter({ subsets: ['latin'] });
+
 
 export const metadata: Metadata = {
   title: 'Mannaplus Group of Schools - Grooming the Future Leaders',
@@ -24,7 +23,7 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html lang="en">
-        <body className={`${inter.className} flex flex-col min-h-screen`}>
+        <body className="font-sans antialiased">
           {/* ✅ Global faded student-photo background (sits behind everything) */}
           <div
             aria-hidden="true"

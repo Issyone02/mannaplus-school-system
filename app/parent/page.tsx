@@ -1,5 +1,6 @@
 'use client'
 
+import PaymentRequestModal from '@/components/PaymentRequestModal'
 import { useUser, SignOutButton } from '@clerk/nextjs'
 import { redirect } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -11,6 +12,7 @@ import NewsHighlights from '@/components/NewsHighlights'
 import UnifiedReportCard from '@/components/UnifiedReportCard'
 import { calculateClassPositions } from '@/lib/classPositions'
 import { getSchoolAssets, getClassTeacherSignature } from '@/lib/schoolAssets'
+import { enrichResultsWithPreviousTerms } from '@/lib/reportCardData'
 
 
 interface Student {
@@ -81,6 +83,15 @@ export default function ParentPortalPage() {
   const [viewMode, setViewMode] = useState<'list' | 'results' | 'fees' | 'attendance'>('list')
   const [positionInfo, setPositionInfo] = useState<any>(null)
   const [signUrls, setSignUrls] = useState<{ teacher?: string | null; principal?: string | null; stamp?: string | null }>({})
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [pendingRequests, setPendingRequests] = useState<any[]>([])
+  const [reportData, setReportData] = useState<any>(null)
+  
+  // ✅ NEW: Term/Session selector state
+  const [selectedTerm, setSelectedTerm] = useState<string>('')
+  const [selectedSession, setSelectedSession] = useState<string>('')
+  const [availableTerms, setAvailableTerms] = useState<string[]>([])
+  const [availableSessions, setAvailableSessions] = useState<string[]>([])
 
   useEffect(() => {
     if (isLoaded && !user) redirect('/sign-in')
@@ -132,13 +143,40 @@ export default function ParentPortalPage() {
     }
   }
 
-  const fetchStudentResults = async (studentId: string) => {
+  // ✅ NEW: Fetch available terms/sessions for the student
+  const fetchAvailableTermsAndSessions = async (studentId: string) => {
+    const { data } = await supabase
+      .from('results')
+      .select('term, session')
+      .eq('student_id', studentId)
+    
+    if (data && data.length > 0) {
+      const terms = Array.from(new Set(data.map(r => r.term))).sort((a, b) => {
+        const order = ['First Term', 'Second Term', 'Third Term']
+        return order.indexOf(b) - order.indexOf(a) // DESC: Third > Second > First
+      })
+      const sessions = Array.from(new Set(data.map(r => r.session))).sort((a, b) => {
+        const [yearA] = a.split('/').map(Number)
+        const [yearB] = b.split('/').map(Number)
+        return yearB - yearA // DESC: 2026/2027 > 2025/2026
+      })
+      setAvailableTerms(terms)
+      setAvailableSessions(sessions)
+      
+      // Default to latest session + latest term
+      setSelectedSession(sessions[0])
+      setSelectedTerm(terms[0])
+    }
+  }
+
+  const fetchStudentResults = async (studentId: string, term: string, session: string) => {
     try {
       const { data, error } = await supabase
         .from('results')
         .select(`id, total_score, grade, term, session, ca_score, exam_score, first_term_total, second_term_total, teacher_comment, principal_comment, remark, subject:subjects(name)`)
         .eq('student_id', studentId)
-        .order('term', { ascending: false })
+        .eq('term', term)
+        .eq('session', session)
 
       if (error) throw error
       
@@ -154,12 +192,24 @@ export default function ParentPortalPage() {
         remark: r.remark || 'Excellent'
       }))
       
-      setResults(enrichedResults as any)
-      return enrichedResults as any
+      const withPreviousTerms = await enrichResultsWithPreviousTerms(enrichedResults, studentId, session) 
+       setResults(withPreviousTerms as any)
+      return withPreviousTerms as any
     } catch (error: any) {
       toast.error('Failed to load results')
       return []
     }
+  }
+
+  const fetchStudentReport = async (studentId: string, term: string, session: string) => {
+    const { data } = await supabase
+      .from('student_reports')
+      .select('*')
+      .eq('student_id', studentId)
+      .eq('term', term)
+      .eq('session', session)
+      .single()
+    setReportData(data || null)
   }
 
   const fetchStudentAttendanceForReport = async (studentId: string) => {
@@ -209,6 +259,13 @@ export default function ParentPortalPage() {
         balance: totalExpected - totalPaid,
         status: (totalExpected - totalPaid) <= 0 ? 'Paid' : (totalExpected - totalPaid) < totalExpected ? 'Partial' : 'Pending'
       })
+
+      const { data: reqs } = await supabase
+        .from('payment_requests')
+        .select('id, amount, status, payment_method, reference_number, notes, created_at')
+        .eq('student_id', studentId)
+        .order('created_at', { ascending: false })
+      setPendingRequests((reqs || []) as any[])
     } catch (error: any) {
       toast.error('Failed to load fee information')
     }
@@ -243,28 +300,38 @@ export default function ParentPortalPage() {
   const handleViewResults = async (childId: string) => {
     setSelectedChild(childId)
     setViewMode('results')
-    const child = children.find(c => c.id === childId)
-    const fetched = await fetchStudentResults(childId)
-    await fetchStudentAttendanceForReport(childId)
-
-    if (child?.class_id && fetched && fetched.length > 0) {
-      const positions = await calculateClassPositions(
-        child.class_id,
-        fetched[0].term || 'Third Term',
-        fetched[0].session || '2025/2026'
-      )
-      setPositionInfo(positions.get(childId) || null)
-    } else {
-      setPositionInfo(null)
-    }
-
-    const assets = await getSchoolAssets()
-    setSignUrls({
-      teacher: child?.class_id ? await getClassTeacherSignature(child.class_id) : null,
-      principal: assets.principal_signature?.url || null,
-      stamp: assets.school_stamp?.url || null,
-    })
+    
+    // ✅ Fetch available terms/sessions first
+    await fetchAvailableTermsAndSessions(childId)
   }
+
+  // ✅ NEW: Re-fetch when term/session changes
+  useEffect(() => {
+    if (selectedChild && selectedTerm && selectedSession) {
+      const loadResults = async () => {
+        const child = children.find(c => c.id === selectedChild)
+        const fetched = await fetchStudentResults(selectedChild, selectedTerm, selectedSession)
+        await fetchStudentAttendanceForReport(selectedChild)
+
+        if (child?.class_id && fetched && fetched.length > 0) {
+          const positions = await calculateClassPositions(child.class_id, selectedTerm, selectedSession)
+          setPositionInfo(positions.get(selectedChild) || null)
+        } else {
+          setPositionInfo(null)
+        }
+
+        await fetchStudentReport(selectedChild, selectedTerm, selectedSession)
+
+        const assets = await getSchoolAssets()
+        setSignUrls({
+          teacher: child?.class_id ? await getClassTeacherSignature(child.class_id) : null,
+          principal: assets.principal_signature?.url || null,
+          stamp: assets.school_stamp?.url || null,
+        })
+      }
+      loadResults()
+    }
+  }, [selectedChild, selectedTerm, selectedSession, children])
 
   const handleViewFees = (childId: string) => {
     setSelectedChild(childId)
@@ -290,6 +357,12 @@ export default function ParentPortalPage() {
     setAttendanceCounts(null)
     setPositionInfo(null)
     setSignUrls({})
+    setReportData(null)
+    setPendingRequests([])
+    setSelectedTerm('')
+    setSelectedSession('')
+    setAvailableTerms([])
+    setAvailableSessions([])
   }
 
   if (!isLoaded || loading) {
@@ -380,6 +453,38 @@ export default function ParentPortalPage() {
               <h2 className="text-2xl font-bold text-gray-900 mb-2">{selectedStudent.full_name}</h2>
               <p className="text-gray-600 mb-6">Academic Results - {selectedStudent.admission_number}</p>
 
+              {/* ✅ NEW: Term/Session Selector */}
+              {availableSessions.length > 0 && (
+                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Session</label>
+                      <select 
+                        value={selectedSession} 
+                        onChange={(e) => setSelectedSession(e.target.value)}
+                        className="w-full p-2 border border-gray-300 rounded text-gray-900 font-bold"
+                      >
+                        {availableSessions.map(s => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Term</label>
+                      <select 
+                        value={selectedTerm} 
+                        onChange={(e) => setSelectedTerm(e.target.value)}
+                        className="w-full p-2 border border-gray-300 rounded text-gray-900 font-bold"
+                      >
+                        {availableTerms.map(t => (
+                          <option key={t} value={t}>{t}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {positionInfo && (
                 <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
                   <p className="text-sm text-blue-900">
@@ -397,17 +502,17 @@ export default function ParentPortalPage() {
                   no_in_class: positionInfo?.total_students || '-'
                 }}
                 results={results}
-                session={results[0]?.session || '2025/2026'}
-                term={results[0]?.term || 'Third Term'}
+                session={selectedSession || '2025/2026'}
+                term={selectedTerm || 'Third Term'}
                 attendance={{
                   opened: attendanceStats?.total || 0,
                   present: attendanceStats?.present || 0,
                   punctual: (attendanceStats?.total || 0) - (attendanceStats?.late || 0),
-                  beg_term: '6th April 2026',
-                  end_term: '6th July 2026',
-                  next_term: ''
+                  beg_term: reportData?.term_begins || '6th April 2026',
+                  end_term: reportData?.term_ends || '6th July 2026',
+                  next_term: reportData?.next_term_begins || ''
                 }}
-                conductRatings={{
+                conductRatings={reportData?.conduct_ratings || {
                   'Attentiveness': 'Excellent',
                   'Cleanliness': 'Good',
                   'Emotional Balance': 'Good',
@@ -417,7 +522,7 @@ export default function ParentPortalPage() {
                   'Politeness': 'Excellent',
                   'Punctuality': 'Excellent'
                 }}
-                physicalSkills={{
+                physicalSkills={reportData?.physical_skills || {
                   'Handwriting': 'Good',
                   'Verbal Fluency': 'Good',
                   'Debate/Quiz': 'Good',
@@ -426,18 +531,20 @@ export default function ParentPortalPage() {
                   'Musical Skills': 'Fair',
                   'Handling Tools': 'Good'
                 }}
-                healthComment="Student is fit and healthy"
-                teacherComment={results[0]?.teacher_comment || 'Good performance'}
-                principalComment={results[0]?.principal_comment || 'Keep it up'}
+                healthComment={reportData?.health_comment || 'Student is fit and healthy'}
+                teacherComment={reportData?.teacher_comment || results[0]?.teacher_comment || 'Good performance'}
+                principalComment={reportData?.principal_comment || results[0]?.principal_comment || 'Keep it up'}
                 teacherSignatureUrl={signUrls.teacher}
                 principalSignatureUrl={signUrls.principal}
                 stampUrl={signUrls.stamp}
+                teacherDate={reportData?.teacher_date || null}
+                headTeacherDate={reportData?.head_teacher_date || null}
               />
               
               {results.length === 0 ? (
                 <div className="text-center py-8 text-gray-600">
                   <FileText size={48} className="mx-auto text-gray-300 mb-2"/>
-                  <p>No results available yet</p>
+                  <p>No results available for this term/session</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto mt-6">
@@ -477,11 +584,22 @@ export default function ParentPortalPage() {
           <div>
             <button onClick={handleBackToList} className="mb-4 text-gray-700 hover:text-gray-900 font-bold flex items-center gap-2">← Back to Children</button>
             <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">{selectedStudent.full_name}</h2>
-              <p className="text-gray-600 mb-6">Fee Status - {selectedStudent.admission_number}</p>
+              <div className="flex justify-between items-start mb-6 flex-wrap gap-3">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">{selectedStudent.full_name}</h2>
+                  <p className="text-gray-600">Fee Status - {selectedStudent.admission_number}</p>
+                </div>
+                <button
+                  onClick={() => setShowPaymentModal(true)}
+                  disabled={!fees || fees.balance <= 0}
+                  className="bg-green-600 text-white px-5 py-3 rounded-lg font-bold hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  💳 Make Payment
+                </button>
+              </div>
               {fees ? (
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                     <div className="bg-blue-50 p-6 rounded-lg text-center">
                       <p className="text-sm text-blue-600 mb-2">Total Expected</p>
                       <p className="text-3xl font-bold text-blue-900">₦{fees.total_expected.toLocaleString()}</p>
@@ -498,9 +616,14 @@ export default function ParentPortalPage() {
                         fees.status === 'Partial' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
                       }`}>{fees.status}</span>
                     </div>
+                    <div className="bg-yellow-50 p-6 rounded-lg text-center">
+                      <p className="text-sm text-yellow-600 mb-2">Pending Approval</p>
+                      <p className="text-3xl font-bold text-yellow-900">
+                        ₦{pendingRequests.filter(r => r.status === 'pending').reduce((s, r) => s + r.amount, 0).toLocaleString()}
+                      </p>
+                    </div>
                   </div>
 
-                  {/* ✅ NEW: Fee breakdown by category */}
                   <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
                     <div className="p-4 border-b border-gray-200 bg-gray-50">
                       <h3 className="font-bold text-gray-900">Fee Breakdown</h3>
@@ -537,12 +660,11 @@ export default function ParentPortalPage() {
                     </div>
                   </div>
 
-                  {/* ✅ Payment history — full transparency */}
                   <div data-testid="payment-history" className="mt-6 bg-white border border-gray-200 rounded-lg overflow-hidden">
                     <div className="p-4 border-b border-gray-200 bg-gray-50">
                       <h3 className="font-bold text-gray-900">Payment History</h3>
                     </div>
-                    {paymentHistory.length === 0 ? (
+                    {paymentHistory.length === 0 && pendingRequests.length === 0 ? (
                       <p className="p-6 text-center text-gray-600">No payments recorded yet.</p>
                     ) : (
                       <div className="overflow-x-auto">
@@ -562,6 +684,17 @@ export default function ParentPortalPage() {
                                 <td className="p-3 text-sm text-gray-600">{new Date(p.created_at || p.payment_date).toLocaleString()}</td>
                                 <td className="p-3 text-sm text-gray-600 capitalize">{p.payment_method}</td>
                                 <td className="p-3 text-right font-bold text-green-700">₦{p.amount_paid.toLocaleString()}</td>
+                              </tr>
+                            ))}
+                            {pendingRequests.filter(r => r.status === 'pending').map((r, i) => (
+                              <tr key={`req-${r.id}`} className="border-b border-gray-100 hover:bg-yellow-50 bg-yellow-50/40">
+                                <td className="p-3 font-medium text-gray-900">{r.reference_number}</td>
+                                <td className="p-3 text-sm text-gray-600">{new Date(r.created_at).toLocaleString()}</td>
+                                <td className="p-3 text-sm text-gray-600 capitalize">{r.payment_method}</td>
+                                <td className="p-3 text-right font-bold text-yellow-700">
+                                  ₦{r.amount.toLocaleString()}
+                                  <span className="ml-2 px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-bold rounded-full">PENDING</span>
+                                </td>
                               </tr>
                             ))}
                           </tbody>
@@ -636,6 +769,16 @@ export default function ParentPortalPage() {
           </div>
         )}
       </main>
+
+      {selectedStudent && fees && (
+        <PaymentRequestModal
+          isOpen={showPaymentModal}
+          onClose={() => setShowPaymentModal(false)}
+          student={selectedStudent}
+          balance={Math.max(0, fees.balance)}
+          onSuccess={() => fetchStudentFees(selectedChild!)}
+        />
+      )}
     </div>
   )
 }

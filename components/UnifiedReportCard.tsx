@@ -17,6 +17,8 @@ interface UnifiedReportCardProps {
   teacherSignatureUrl?: string | null
   principalSignatureUrl?: string |null
   stampUrl?: string | null
+  teacherDate?: string | null
+  headTeacherDate?: string | null
 }
 
 const CONDUCT = ['Attentiveness', 'Cleanliness', 'Emotional Balance', 'Honesty', 'Leadership', 'Maturity', 'Politeness', 'Punctuality']
@@ -26,6 +28,13 @@ export default function UnifiedReportCard(props: UnifiedReportCardProps) {
   const { student, results, session, term, className = '' } = props
 
   const termNum = term.toLowerCase().includes('first') ? '1ST' : term.toLowerCase().includes('second') ? '2ND' : '3RD'
+
+  // ✅ TERM-AWARE COLUMNS:
+  // 1st Term card  → CA, Exam, Total, Position, Remarks ONLY
+  // 2nd Term card  → + First Term column
+  // 3rd Term card  → + First Term + Second Term columns
+  const showFirstTermCol = !term.toLowerCase().includes('first')
+  const showSecondTermCol = term.toLowerCase().includes('third')
 
   const handlePrint = () => {
     if (results.length === 0) return
@@ -44,18 +53,20 @@ export default function UnifiedReportCard(props: UnifiedReportCardProps) {
     const overallGrade = getGrade(parseFloat(overallPct))
     const passed = parseFloat(overallPct) >= 40
 
-    // Subject rows
+    // Subject rows (columns adapt to the term)
     let subjectsHtml = ''
     results.forEach((r, i) => {
       const ca = r.ca_score || 0, ex = r.exam_score || 0, tot = ca + ex
+      const ft = (r.first_term_total === null || r.first_term_total === undefined) ? '-' : r.first_term_total
+      const st = (r.second_term_total === null || r.second_term_total === undefined) ? '-' : r.second_term_total
       subjectsHtml += `<tr>
         <td>${i + 1}. ${r.subject_name || 'Unknown'}</td>
         <td style="text-align:center">${ca}</td>
         <td style="text-align:center">${ex}</td>
         <td style="text-align:center;font-weight:bold">${tot}</td>
         <td style="text-align:center">${r.position || '-'}</td>
-        <td style="text-align:center">${r.first_term_total || '-'}</td>
-        <td style="text-align:center">${r.second_term_total || '-'}</td>
+        ${showFirstTermCol ? `<td style="text-align:center">${ft}</td>` : ''}
+        ${showSecondTermCol ? `<td style="text-align:center">${st}</td>` : ''}
         <td style="text-align:center">${r.remark || (tot >= 40 ? 'Pass' : 'Fail')}</td>
       </tr>`
     })
@@ -92,26 +103,26 @@ export default function UnifiedReportCard(props: UnifiedReportCardProps) {
     margin: 0; 
     padding: 4px; 
     background: #fff; 
-    font-weight: bold; /* ✅ ALL text bold for legibility */
+    font-weight: bold;
   }
   .header { display: flex; align-items: center; gap: 10px; border-bottom: 2px solid #16a34a; padding-bottom: 5px; margin-bottom: 6px; }
-  .logo { width: 80px; height: 80px; object-fit: contain; } /* ✅ Logo increased from 50px to 80px */
+  .logo { width: 80px; height: 80px; object-fit: contain; }
   .school-info { flex: 1; text-align: center; }
-  h1 { margin: 0; font-size: 16px; color: #16a34a; text-transform: uppercase; font-weight: bold; } /* ✅ +2 & bold */
-  h2 { margin: 1px 0; font-size: 11px; font-style: italic; color: #333; font-weight: bold; } /* ✅ +2 & bold */
-  .addr { margin: 1px 0; font-size: 9px; color: #555; font-weight: bold; } /* ✅ +1.5 & bold */
-  .title { text-align: center; font-size: 13px; font-weight: bold; margin: 5px 0; text-transform: uppercase; } /* ✅ +2 & bold */
+  h1 { margin: 0; font-size: 16px; color: #16a34a; text-transform: uppercase; font-weight: bold; }
+  h2 { margin: 1px 0; font-size: 11px; font-style: italic; color: #333; font-weight: bold; }
+  .addr { margin: 1px 0; font-size: 9px; color: #555; font-weight: bold; }
+  .title { text-align: center; font-size: 13px; font-weight: bold; margin: 5px 0; text-transform: uppercase; }
   .srow { display: flex; justify-content: space-between; font-size: 10px; border-bottom: 1px solid #999; padding-bottom: 3px; margin-bottom: 6px; font-weight: bold; }
   .srow span { flex: 1; }
-  .sec { font-weight: bold; font-size: 11px; margin: 6px 0 3px 0; } /* ✅ +1.5 & bold */
+  .sec { font-weight: bold; font-size: 11px; margin: 6px 0 3px 0; }
   table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
-  th, td { border: 1px solid #000; padding: 3px 4px; font-size: 9.5px; font-weight: bold; } /* ✅ +1 & bold */
-  th { background: #f0fdf4; text-align: center; font-size: 9px; font-weight: bold; } /* ✅ +1 & bold */
+  th, td { border: 1px solid #000; padding: 3px 4px; font-size: 9.5px; font-weight: bold; }
+  th { background: #f0fdf4; text-align: center; font-size: 9px; font-weight: bold; }
   .two { display: flex; gap: 6px; }
   .two > div { flex: 1; }
   .sum td { font-weight: bold; background: #f0fdf4; }
   .sig { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 14px; }
-  .sig-box { width: 30%; text-align: center; font-size: 9px; font-weight: bold; } /* ✅ +1 & bold */
+  .sig-box { width: 30%; text-align: center; font-size: 9px; font-weight: bold; }
   .sig-line { border-top: 1px solid #000; padding-top: 3px; }
   .stamp { 
     width: 72px; height: 72px; 
@@ -184,17 +195,23 @@ export default function UnifiedReportCard(props: UnifiedReportCardProps) {
         <th style="width:9%">Exam (70)</th>
         <th style="width:10%">Total (100)</th>
         <th style="width:8%">Position</th>
-        <th style="width:11%">First Term</th>
-        <th style="width:11%">Second Term</th>
+        ${showFirstTermCol ? '<th style="width:11%">First Term</th>' : ''}
+        ${showSecondTermCol ? '<th style="width:11%">Second Term</th>' : ''}
         <th style="width:12%">Remarks</th>
       </tr>
       <tr class="sum">
-        <td>Max. Obtainable</td><td style="text-align:center">30</td><td style="text-align:center">70</td><td style="text-align:center">100</td><td></td><td style="text-align:center">100</td><td style="text-align:center">100</td><td></td>
+        <td>Max. Obtainable</td><td style="text-align:center">30</td><td style="text-align:center">70</td><td style="text-align:center">100</td><td></td>
+        ${showFirstTermCol ? '<td style="text-align:center">100</td>' : ''}
+        ${showSecondTermCol ? '<td style="text-align:center">100</td>' : ''}
+        <td></td>
       </tr>
     </thead>
     <tbody>${subjectsHtml}
       <tr class="sum">
-        <td>TOTAL</td><td></td><td></td><td style="text-align:center">${grandTotal}/${maxTotal}</td><td></td><td></td><td></td><td style="text-align:center">${overallGrade}</td>
+        <td>TOTAL</td><td></td><td></td><td style="text-align:center">${grandTotal}/${maxTotal}</td><td></td>
+        ${showFirstTermCol ? '<td></td>' : ''}
+        ${showSecondTermCol ? '<td></td>' : ''}
+        <td style="text-align:center">${overallGrade}</td>
       </tr>
     </tbody>
   </table>
@@ -223,15 +240,15 @@ export default function UnifiedReportCard(props: UnifiedReportCardProps) {
   <div class="sig">
     <div class="sig-box">
       ${props.teacherSignatureUrl ? `<img src="${props.teacherSignatureUrl}" style="height:45px;object-fit:contain;margin-bottom:2px" alt=""/>` : ''}
-      <div class="sig-line">Class Teacher's Signature</div>Date: ______________
+      <div class="sig-line">Class Teacher's Signature</div>Date: ${props.teacherDate ? new Date(props.teacherDate).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'}) : '______________'}
     </div>
     <div class="sig-box">
       ${props.stampUrl ? `<img src="${props.stampUrl}" style="width:90px;height:90px;object-fit:contain" alt="School Stamp"/>` : `<div class="stamp">OFFICIAL<br/>SCHOOL<br/>STAMP</div>`}
       <div style="margin-top:2px">Affix School Stamp &<br/>Authorized Signature Here</div>
     </div>
     <div class="sig-box">
-      ${props.principalSignatureUrl ? `<img src="${props.principalSignatureUrl}" style="height:45px;object-contain;object-fit:contain;margin-bottom:2px" alt=""/>` : ''}
-      <div class="sig-line">Head Teacher's Signature</div>Date: ______________
+      ${props.principalSignatureUrl ? `<img src="${props.principalSignatureUrl}" style="height:45px;object-fit:contain;margin-bottom:2px" alt=""/>` : ''}
+      <div class="sig-line">Head Teacher's Signature</div>Date: ${props.headTeacherDate ? new Date(props.headTeacherDate).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'}) : '______________'}
     </div>
   </div>
 

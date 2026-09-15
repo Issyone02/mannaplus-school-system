@@ -45,6 +45,8 @@ export default function ReportCardEditor({
     principal_comment: '',
     position_in_class: 0,
     total_students_in_class: 0,
+    teacher_date: '',
+    head_teacher_date: '',
   })
 
   // ✅ AUTO-CALCULATE attendance from the marked attendance records
@@ -110,6 +112,8 @@ export default function ReportCardEditor({
           principal_comment: data.principal_comment || '',
           position_in_class: data.position_in_class || 0,
           total_students_in_class: data.total_students_in_class || 0,
+          teacher_date: data.teacher_date || '',
+          head_teacher_date: data.head_teacher_date || '',
         }))
       }
     } catch (error: any) {
@@ -323,6 +327,29 @@ export default function ReportCardEditor({
               className={`w-full p-2 border rounded text-gray-900 ${!isAdmin ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : ''}`}
               placeholder={isAdmin ? 'e.g. Keep it up...' : 'Only the admin can edit this comment'}
             />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Class Teacher's Signature Date</label>
+              <input 
+                type="date" 
+                value={formData.teacher_date} 
+                onChange={e => setFormData({...formData, teacher_date: e.target.value})} 
+                className="w-full p-2 border rounded text-gray-900" 
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Head Teacher's Signature Date {!isAdmin && <span className="text-xs font-bold text-gray-400">(Admin only)</span>}
+              </label>
+              <input 
+                type="date" 
+                value={formData.head_teacher_date} 
+                onChange={e => setFormData({...formData, head_teacher_date: e.target.value})} 
+                disabled={!isAdmin}
+                className={`w-full p-2 border rounded text-gray-900 ${!isAdmin ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : ''}`}
+              />
+            </div>
           </div>
         </div>
       </div>
