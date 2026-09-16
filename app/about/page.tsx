@@ -142,14 +142,14 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="bg-green-700 py-14">
+      {/* CTA — unified readable style (dark text on washed background) */}
+      <section className="py-14">
         <div className="max-w-4xl mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold text-white mb-3">Come and see what we're building</h2>
-          <p className="text-green-100 mb-8">Visit our campus in Sango Ota or begin your child's admission today.</p>
+          <h2 className="text-3xl font-bold text-gray-900 mb-3">Come and see what we're building</h2>
+          <p className="text-gray-700 mb-8">Visit our campus in Sango Ota or begin your child's admission today.</p>
           <div className="flex justify-center gap-4 flex-wrap">
-            <Link href="/admissions" className="bg-white text-green-700 px-8 py-3 rounded-lg font-bold hover:bg-green-50 flex items-center gap-2">Apply for Admission <ArrowRight size={18} /></Link>
-            <Link href="/contact" className="border-2 border-white text-white px-8 py-3 rounded-lg font-bold hover:bg-green-600">Book a Campus Visit</Link>
+            <Link href="/admissions" className="bg-green-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-green-700 flex items-center gap-2">Apply for Admission <ArrowRight size={18} /></Link>
+            <Link href="/contact" className="bg-white border-2 border-green-600 text-green-700 px-8 py-3 rounded-lg font-bold hover:bg-green-50">Book a Campus Visit</Link>
           </div>
         </div>
       </section>

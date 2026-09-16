@@ -117,14 +117,19 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="py-20 bg-green-700 text-white">
+      {/* CTA — unified readable style (dark text on washed background) */}
+      <section className="py-20">
         <div className="max-w-4xl mx-auto px-4 text-center">
-          <h2 className="text-4xl font-bold mb-6">Ready to Join the Mannaplus Family?</h2>
-          <p className="text-xl mb-8 text-green-100">Admissions are now open for the 2026/2027 academic session. Speak with our admissions team today.</p>
-          <Link href="/admissions" className="bg-yellow-400 text-gray-900 px-8 py-4 rounded-lg font-bold text-lg hover:bg-yellow-300 transition-colors inline-block">
-            Apply Now
-          </Link>
+          <h2 className="text-4xl font-bold mb-6 text-gray-900">Ready to Join the Mannaplus Family?</h2>
+          <p className="text-xl mb-8 text-gray-700">Admissions are now open for the 2026/2027 academic session. Speak with our admissions team today.</p>
+          <div className="flex flex-col sm:flex-row justify-center gap-4 flex-wrap">
+            <Link href="/admissions" className="bg-green-600 text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-green-700 transition-colors inline-block">
+              Apply for Admission
+            </Link>
+            <Link href="/contact" className="bg-white text-green-700 border-2 border-green-600 px-8 py-4 rounded-lg font-bold text-lg hover:bg-green-50 transition-colors inline-block">
+              Contact Us
+            </Link>
+          </div>
         </div>
       </section>
     </div>

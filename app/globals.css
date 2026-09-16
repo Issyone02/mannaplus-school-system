@@ -138,13 +138,6 @@ body {
   background-color: rgba(240, 253, 244, 0.82);
 }
 
-/* Brand blocks (heroes & CTAs) stay fully opaque — untouched */
-.public-page > section[class*="bg-gradient-to"],
-.public-page > section.bg-green-700,
-.public-page > section.bg-green-600 {
-  background-color: transparent;
-}
-
 /* Portals keep opaque, clean backgrounds — intentionally untouched */
 
 /* Keep the whole app background consistent */
