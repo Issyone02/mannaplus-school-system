@@ -25,16 +25,19 @@ const CONDUCT = ['Attentiveness', 'Cleanliness', 'Emotional Balance', 'Honesty',
 const PHYSICAL = ['Handwriting', 'Verbal Fluency', 'Debate/Quiz', 'Sports', 'Drawing & Painting', 'Musical Skills', 'Handling Tools']
 
 export default function UnifiedReportCard(props: UnifiedReportCardProps) {
+  
   const { student, results, session, term, className = '' } = props
 
-  const termNum = term.toLowerCase().includes('first') ? '1ST' : term.toLowerCase().includes('second') ? '2ND' : '3RD'
+  // ✅ Defensively handle undefined/empty term during initial render
+  const safeTerm = (term || '').toLowerCase()
+  const termNum = safeTerm.includes('first') ? '1ST' : safeTerm.includes('second') ? '2ND' : '3RD'
 
   // ✅ TERM-AWARE COLUMNS:
   // 1st Term card  → CA, Exam, Total, Position, Remarks ONLY
   // 2nd Term card  → + First Term column
   // 3rd Term card  → + First Term + Second Term columns
-  const showFirstTermCol = !term.toLowerCase().includes('first')
-  const showSecondTermCol = term.toLowerCase().includes('third')
+  const showFirstTermCol = !safeTerm.includes('first')
+  const showSecondTermCol = safeTerm.includes('third')
 
   const handlePrint = () => {
     if (results.length === 0) return

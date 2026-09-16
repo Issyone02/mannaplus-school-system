@@ -20,7 +20,7 @@
 }
 
 body {
-  background: var(--background);
+  background: transparent;
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
@@ -111,14 +111,52 @@ body {
   display: block;
 }
 
-/* Allow global faded background to show through page wrappers */
-.min-h-screen.bg-gray-50 {
-  background-color: rgba(249, 250, 251, 0.86) !important;
+/* === UNIFIED PUBLIC-PAGE BACKGROUND SYSTEM === */
+/* Public pages go transparent so the global fixed photo (app/layout.tsx) shows through */
+.public-page {
+  background-color: transparent !important;
 }
 
+/* ✅ READABILITY STACK: photo visible, but every text zone gets a translucent wash */
+
+/* Sections with NO background class (pure transparent) get a soft white wash */
+.public-page > section:not([class*="bg-"]) {
+  background-color: rgba(255, 255, 255, 0.62);
+}
+
+/* Light sections stay glassy but readable */
+.public-page > section.bg-white,
+.public-page > div.bg-white {
+  background-color: rgba(255, 255, 255, 0.88);
+}
+
+.public-page > section.bg-gray-50 {
+  background-color: rgba(249, 250, 251, 0.8);
+}
+
+.public-page > section.bg-green-50 {
+  background-color: rgba(240, 253, 244, 0.82);
+}
+
+/* Brand blocks (heroes & CTAs) stay fully opaque — untouched */
+.public-page > section[class*="bg-gradient-to"],
+.public-page > section.bg-green-700,
+.public-page > section.bg-green-600 {
+  background-color: transparent;
+}
+
+/* Portals keep opaque, clean backgrounds — intentionally untouched */
+
 /* Keep the whole app background consistent */
-html,
+/* Keep the whole app background consistent */
+html {
+  min-height: 100%;
+  background-color: #f0fdf4; /* base canvas colour, painted BEHIND the photo */
+}
+
+/* ✅ body MUST stay transparent — an opaque body background paints
+   OVER the fixed -z-10 photo layer (CSS paint order) */
 body {
   min-height: 100%;
-  background-color: #f0fdf4;
+  background-color: transparent;
 }

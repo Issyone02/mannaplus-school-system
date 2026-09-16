@@ -28,7 +28,7 @@ const why = [
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="public-page min-h-screen">
       {/* Hero */}
       <section className="bg-gradient-to-br from-green-600 to-green-900 text-white py-24">
         <div className="max-w-7xl mx-auto px-4 text-center">

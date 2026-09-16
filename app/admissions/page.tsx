@@ -22,7 +22,7 @@ const documents = [
 
 export default function AdmissionsPage() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="public-page min-h-screen">
       {/* Hero */}
       <section className="bg-gradient-to-br from-green-700 to-green-900 text-white">
         <div className="max-w-7xl mx-auto px-4 py-16 text-center">

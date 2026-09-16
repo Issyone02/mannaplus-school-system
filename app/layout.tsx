@@ -29,7 +29,7 @@ export default function RootLayout({
             aria-hidden="true"
             className="fixed inset-0 -z-10 bg-cover bg-center bg-no-repeat"
             style={{
-              backgroundImage: `linear-gradient(135deg, rgba(240, 253, 244, 0.94), rgba(255, 255, 255, 0.90), rgba(220, 252, 231, 0.92)), url('https://mecvtpnqmffqvniioudk.supabase.co/storage/v1/object/public/school-assets/backgrounds/app-bg.jpg')`,
+              backgroundImage: `linear-gradient(135deg, rgba(240, 253, 244, 0.80), rgba(255, 255, 255, 0.78), rgba(220, 252, 231, 0.82)), url('https://mecvtpnqmffqvniioudk.supabase.co/storage/v1/object/public/school-assets/backgrounds/app-bg.jpg')`,
             }}
           />
           <Navbar />

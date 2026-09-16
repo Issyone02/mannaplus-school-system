@@ -27,7 +27,7 @@ const assessmentSteps = [
 
 export default function AcademicsPage() {
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="public-page min-h-screen">
       {/* Hero */}
       <section className="bg-gradient-to-br from-green-700 to-green-900 text-white">
         <div className="max-w-7xl mx-auto px-4 py-20 text-center">
