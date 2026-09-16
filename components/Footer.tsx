@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import LegalFooterLinks from '@/components/LegalFooterLinks'
 
 export default function Footer() {
   return (
@@ -51,7 +52,14 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="border-t border-gray-800 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center text-gray-400 text-sm">
+        {/* ✅ Legal Links Section - Added Here */}
+        <div className="border-t border-gray-800 mt-8 pt-6 mb-6">
+          <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
+            <LegalFooterLinks />
+          </div>
+        </div>
+
+        <div className="border-t border-gray-800 pt-6 flex flex-col md:flex-row justify-between items-center text-gray-400 text-sm">
           <p>&copy; {new Date().getFullYear()} Mannaplus Group of Schools. All rights reserved.</p>
           <p>Nursery • Primary • College — Sango Ota, Ogun State</p>
         </div>
