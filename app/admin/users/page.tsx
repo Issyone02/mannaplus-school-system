@@ -54,6 +54,20 @@ export default function UserManagementPage() {
     e.preventDefault();
     try {
       if (editingUser) {
+        // ✅ UPDATE: Check if email changed and conflicts
+        if (formData.email !== editingUser.email) {
+          const { data: existingEmail } = await supabase
+            .from('users')
+            .select('id, full_name')
+            .eq('email', formData.email)
+            .single();
+
+          if (existingEmail) {
+            toast.error(`Email "${formData.email}" is already registered to ${existingEmail.full_name}. Each person needs a unique email.`);
+            return;
+          }
+        }
+
         const { error } = await supabase
           .from('users')
           .update({
@@ -67,6 +81,32 @@ export default function UserManagementPage() {
         if (error) throw error;
         toast.success('User updated successfully!');
       } else {
+        // ✅ CREATE: Duplicate checks before creating
+        // Check 1: Same email
+        const { data: existingEmail } = await supabase
+          .from('users')
+          .select('id, full_name')
+          .eq('email', formData.email)
+          .single();
+
+        if (existingEmail) {
+          toast.error(`Email "${formData.email}" is already registered to ${existingEmail.full_name}. Each person needs a unique email.`);
+          return;
+        }
+
+        // Check 2: Same name + same role
+        const { data: existingNameRole } = await supabase
+          .from('users')
+          .select('id, email')
+          .eq('full_name', formData.full_name)
+          .eq('role', formData.role)
+          .single();
+
+        if (existingNameRole) {
+          toast.error(`A ${formData.role} named "${formData.full_name}" already exists (email: ${existingNameRole.email}). If this is a different person, add a middle name or identifier.`);
+          return;
+        }
+
         const response = await fetch('/api/users/create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

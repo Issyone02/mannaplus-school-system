@@ -10,6 +10,7 @@ import {
   AlertCircle, CheckCircle, ChevronLeft, ChevronRight
 } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
+import { findEmailConflict } from '@/lib/emailGuard'
 
 interface ClassItem {
   id: string
@@ -167,6 +168,14 @@ export default function StudentsPage() {
       let userId: string | null = formData.user_id || null
 
       if (formData.create_portal_account && formData.user_email) {
+        // ✅ EMAIL UNIQUENESS GUARD (one email = one person)
+        const conflict = await findEmailConflict(formData.user_email, { ignoreStudentId: editingStudent?.id })
+        if (conflict) {
+          toast.error(`Email conflict: ${formData.user_email} already belongs to ${conflict.person} (${conflict.role}). Each person needs a unique email.`)
+          setSubmitting(false)
+          return
+        } // <-- CRITICAL: This closing brace was likely missing
+
         try {
           const { data: existingUser } = await supabase
             .from('users')
@@ -240,6 +249,7 @@ export default function StudentsPage() {
       setSubmitting(false)
     }
   }
+      
 
   const handleEdit = (student: Student) => {
     setEditingStudent(student)
@@ -429,6 +439,11 @@ export default function StudentsPage() {
         let userId: string | null = null
         const portalEmail = get('email')
         if (portalEmail) {
+          const conflict = await findEmailConflict(portalEmail)
+          if (conflict) {
+            skipped.push(`Row ${lineNumber}: email ${portalEmail} already belongs to ${conflict.person} (${conflict.role})`)
+            continue
+          }
           try {
             const { data: existingUser } = await supabase.from('users').select('id').eq('email', portalEmail).single()
             if (existingUser) {

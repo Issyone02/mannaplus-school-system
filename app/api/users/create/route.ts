@@ -64,17 +64,47 @@ export async function POST(request: NextRequest) {
     // 1. Check if user already exists in our Supabase database
     const { data: existingUser } = await supabase
       .from('users')
-      .select('clerk_id, id')
+      .select('clerk_id, id, role, full_name')
       .eq('email', email)
       .single();
 
-    if (existingUser?.clerk_id) {
-      return NextResponse.json({
-        success: true,
-        userId: existingUser.id,
-        clerkId: existingUser.clerk_id,
-        message: 'User already exists and is linked.',
-      });
+    if (existingUser) {
+      // ✅ ONE EMAIL = ONE PERSON: never link a student request to a parent account (or vice versa)
+      if (existingUser.role !== role) {
+        return NextResponse.json({
+          error: `This email already belongs to ${existingUser.full_name || 'another person'} (${existingUser.role} account). One email can identify only one person. Use a different email (e.g. an alias like name+student@gmail.com).`,
+        }, { status: 409 });
+      }
+      if (existingUser.clerk_id) {
+        return NextResponse.json({
+          success: true,
+          userId: existingUser.id,
+          clerkId: existingUser.clerk_id,
+          message: 'User already exists and is linked.',
+        });
+      }
+    }
+
+    // ✅ Cross-person guard: the email may not be owned by another student/parent/teacher record
+    const clean = email.trim().toLowerCase();
+    if (role !== 'student') {
+      const { data: stuHit } = await supabase.from('students').select('full_name').ilike('user_email', clean).limit(1);
+      if (stuHit && stuHit.length > 0) {
+        return NextResponse.json({ error: `This email already belongs to student ${stuHit[0].full_name}. One email can identify only one person.` }, { status: 409 });
+      }
+    }
+    if (role !== 'parent') {
+      const { data: parHit } = await supabase.from('parents').select('full_name').ilike('email', clean).limit(1);
+      if (parHit && parHit.length > 0) {
+        return NextResponse.json({ error: `This email already belongs to parent ${parHit[0].full_name}. One email can identify only one person.` }, { status: 409 });
+      }
+    }
+    if (role !== 'teacher') {
+      const { data: teaHit } = await supabase.from('teachers').select('*').ilike('email', clean).limit(1);
+      if (teaHit && teaHit.length > 0) {
+        const t: any = teaHit[0];
+        return NextResponse.json({ error: `This email already belongs to teacher ${t.full_name || t.name || ''}. One email can identify only one person.` }, { status: 409 });
+      }
     }
 
     // crypto.randomBytes instead of Math.random(): this becomes a real,

@@ -13,56 +13,48 @@ interface ChildInfo {
   class_id: string | null;
 }
 
-const PARENT_EMAILS = [
-  'toluwaniisaiah01@gmail.com',
-  process.env.PARENT_TEST_EMAIL || '',
-];
-
 export default function ParentLayout({ children }: { children: React.ReactNode }) {
   const { isSignedIn, isLoaded, user } = useUser();
   const [childrenInfo, setChildrenInfo] = useState<ChildInfo[]>([]);
   const [activePopupIndex, setActivePopupIndex] = useState(0);
+  const [authState, setAuthState] = useState<'resolving' | 'parent' | 'denied'>('resolving');
 
-  // ✅ Synchronous authorization — no useEffect, no race condition
   const userEmail = user?.emailAddresses?.[0]?.emailAddress || '';
-  const isParent = PARENT_EMAILS.includes(userEmail);
 
-  // Fetch children data (non-blocking, for NoticePopup only)
+  // ✅ Role-based authorization (NO hardcoded emails) + children via parents.students_ids
   useEffect(() => {
-    const fetchChildren = async () => {
-      if (!isLoaded || !isParent || !userEmail) return;
-
+    const resolve = async () => {
+      if (!isLoaded) return;
+      if (!isSignedIn || !userEmail) { setAuthState('denied'); return; }
       try {
-        const { data: userData } = await supabase
-          .from('users')
-          .select('id')
-          .eq('email', userEmail)
-          .single();
+        const { data: u } = await supabase.from('users').select('id, role').eq('email', userEmail).single();
+        if (u?.role !== 'parent') { setAuthState('denied'); return; }
+        setAuthState('parent');
 
-        if (userData?.id) {
-          const { data: students } = await supabase
-            .from('students')
-            .select('id, class_id')
-            .eq('user_id', userData.id);
-
-          if (students) {
-            setChildrenInfo(students as ChildInfo[]);
-          }
+        let ids: string[] = [];
+        const { data: byUser } = await supabase.from('parents').select('id, students_ids').eq('user_id', u.id).single();
+        ids = byUser?.students_ids || [];
+        if (ids.length === 0) {
+          const { data: byEmail } = await supabase.from('parents').select('id, students_ids').ilike('email', userEmail).single();
+          ids = byEmail?.students_ids || [];
         }
-      } catch (err) {
-        console.log('⚠️ NoticePopup data fetch failed (non-critical):', err);
+        if (ids.length > 0) {
+          const { data: kids } = await supabase.from('students').select('id, class_id').in('id', ids);
+          setChildrenInfo((kids || []) as ChildInfo[]);
+        } else {
+          const { data: legacy } = await supabase.from('students').select('id, class_id').eq('user_id', u.id);
+          setChildrenInfo((legacy || []) as ChildInfo[]);
+        }
+      } catch {
+        setAuthState('denied');
       }
     };
+    resolve();
+  }, [isLoaded, isSignedIn, userEmail]);
 
-    fetchChildren();
-  }, [isLoaded, isParent, userEmail]);
+  const handlePopupClose = () => setActivePopupIndex(prev => prev + 1);
 
-  const handlePopupClose = () => {
-    setActivePopupIndex(prev => prev + 1);
-  };
-
-  // Loading state
-  if (!isLoaded) {
+  if (!isLoaded || authState === 'resolving') {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
@@ -70,24 +62,16 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
     );
   }
 
-  // Not signed in
-  if (!isSignedIn) {
-    redirect('/sign-in');
-  }
-
-  // Not authorized
-  if (!isParent) {
-    redirect('/dashboard');
-  }
+  if (!isSignedIn) redirect('/sign-in');
+  if (authState === 'denied') redirect('/dashboard');
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       <ParentSidebar />
       <IdleTimeout />
-      
-      {/* Show NoticePopups one at a time (not stacked) */}
+
       {childrenInfo.length > 0 && activePopupIndex < childrenInfo.length && (
-        <NoticePopup 
+        <NoticePopup
           key={childrenInfo[activePopupIndex].id}
           userRole="parent"
           userId={childrenInfo[activePopupIndex].id}

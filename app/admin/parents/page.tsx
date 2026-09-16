@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { Plus, Edit, Trash2, Search, X, Save, User, Mail, Phone, Home, Briefcase, Users } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { getSchoolAssets, getClassTeacherSignature } from '@/lib/schoolAssets';
+import { findEmailConflict } from '@/lib/emailGuard';
 
 interface Parent {
   id: string;
@@ -105,6 +106,7 @@ export default function ParentsPage() {
         body: JSON.stringify({ email, fullName, role: 'parent', phone: '' }),
       });
       const result = await response.json();
+      if (!response.ok && result.error) toast.error(result.error);
       if (result.success) {
         const { data } = await supabase.from('users').select('id').eq('clerk_id', result.clerkId).single();
         return data?.id || null;
@@ -119,6 +121,15 @@ export default function ParentsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // ✅ EMAIL UNIQUENESS GUARD: contact email AND portal email must belong to this parent only
+      for (const em of [formData.email, formData.user_email].filter(Boolean)) {
+        const conflict = await findEmailConflict(em, { ignoreParentId: editingParent?.id });
+        if (conflict) {
+          toast.error(`Email conflict: ${em} already belongs to ${conflict.person} (${conflict.role}). Each person needs a unique email.`);
+          return;
+        }
+      }
+
       let userId: string | null = formData.user_id || null;
 
       if (formData.create_portal_account && formData.user_email) {
@@ -150,37 +161,15 @@ export default function ParentsPage() {
         const { error: parentError } = await supabase.from('parents').update(parentData).eq('id', editingParent.id);
         if (parentError) throw parentError;
         
-        // 2. ✅ CRITICAL: Update student records with parent's user_id
-        // First, clear old links
-        if (editingParent.students_ids && editingParent.students_ids.length > 0) {
-          await supabase
-            .from('students')
-            .update({ user_id: null })
-            .in('id', editingParent.students_ids);
-        }
-        
-        // Then, set new links
-        if (formData.students_ids.length > 0 && userId) {
-          await supabase
-            .from('students')
-            .update({ user_id: userId })
-            .in('id', formData.students_ids);
-        }
-        
+        // ✅ Linkage lives ONLY in parents.students_ids.
+        // students.user_id is reserved for the student's OWN portal account.
         toast.success('Parent updated successfully!');
       } else {
         // New parent
         const { error: parentError } = await supabase.from('parents').insert([parentData]);
         if (parentError) throw parentError;
         
-        // Link students to this parent
-        if (formData.students_ids.length > 0 && userId) {
-          await supabase
-            .from('students')
-            .update({ user_id: userId })
-            .in('id', formData.students_ids);
-        }
-        
+        // ✅ Linkage lives ONLY in parents.students_ids (set above in parentData).
         toast.success('Parent added successfully!' + (userId ? ' Portal account created!' : ''));
       }
 

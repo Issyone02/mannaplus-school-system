@@ -107,14 +107,38 @@ export default function ParentPortalPage() {
       const { data: userData, error: userError } = await supabase
         .from('users').select('id, role').eq('email', email).single()
 
-      if (userError || !userData) {
+      if (userError || !userData || userData.role !== 'parent') {
         toast.error('Parent account not found. Please contact administration.')
         setLoading(false)
         return
       }
 
-      const { data: studentsData, error: studentsError } = await supabase
-        .from('students').select('id, full_name, admission_number, class_id').eq('user_id', userData.id)
+      // ✅ Children resolved via parents.students_ids (single source of truth).
+      // students.user_id is reserved for the student's OWN portal account.
+      let ids: string[] = []
+      const { data: byUser } = await supabase
+        .from('parents').select('id, students_ids').eq('user_id', userData.id).single()
+      ids = byUser?.students_ids || []
+      if (ids.length === 0) {
+        const { data: byEmail } = await supabase
+          .from('parents').select('id, students_ids').ilike('email', email).single()
+        ids = byEmail?.students_ids || []
+      }
+
+      let studentsData: any[] | null = null
+      let studentsError: any = null
+      if (ids.length > 0) {
+        const res = await supabase
+          .from('students').select('id, full_name, admission_number, class_id').in('id', ids)
+        studentsData = res.data
+        studentsError = res.error
+      } else {
+        // Legacy fallback (children linked before students_ids existed)
+        const res = await supabase
+          .from('students').select('id, full_name, admission_number, class_id').eq('user_id', userData.id)
+        studentsData = res.data
+        studentsError = res.error
+      }
 
       if (studentsError) {
         toast.error('Failed to load children: ' + studentsError.message)
