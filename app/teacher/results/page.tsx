@@ -326,13 +326,8 @@ export default function TeacherResultsPage() {
   const uniqueDepartments = Array.from(new Set(classes.map(c => c.department).filter(Boolean))) as string[]
   const formatClassName = (cls: ClassItem) => `${cls.class_name} ${cls.arm ? `(${cls.arm})` : ''} ${cls.department ? `- ${cls.department}` : ''}`
 
-  if (!isLoaded || loading) return <div className="p-8 text-gray-900 font-bold">Loading...</div>
-
-  const printStudent = printStudentId ? students.find(s => s.id === printStudentId) : null
-  const printStudentClass = printStudent ? classes.find(c => c.id === printStudent.class_id) : null
-  const printStudentResults = printStudentId ? getStudentResults(printStudentId) : []
-
   // ✅ Enrich print-modal results with real First/Second Term totals
+  // MUST be before the early return to satisfy React's Rules of Hooks
   useEffect(() => {
     const enrich = async () => {
       if (!printStudentId) { setPrintResultsEnriched([]); return }
@@ -342,6 +337,12 @@ export default function TeacherResultsPage() {
     }
     enrich()
   }, [printStudentId, selectedTerm, selectedSession, results])
+
+  if (!isLoaded || loading) return <div className="p-8 text-gray-900 font-bold">Loading...</div>
+
+  const printStudent = printStudentId ? students.find(s => s.id === printStudentId) : null
+  const printStudentClass = printStudent ? classes.find(c => c.id === printStudent.class_id) : null
+  const printStudentResults = printStudentId ? getStudentResults(printStudentId) : []
 
   const editStudent = editReportStudentId ? students.find(s => s.id === editReportStudentId) : null
   const editStudentClass = editStudent ? classes.find(c => c.id === editStudent.class_id) : null
