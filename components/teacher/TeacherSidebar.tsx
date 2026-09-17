@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   Users,
@@ -11,7 +11,6 @@ import {
   Calendar,
   Bell,
   LogOut,
-  Menu,
   X,
   PenLine,
 } from 'lucide-react';
@@ -34,15 +33,21 @@ export default function TeacherSidebar() {
 
   const closeMenu = () => setIsOpen(false);
 
+  // ✅ Listen for open-menu event from the mobile top bar (teacher layout)
+  useEffect(() => {
+    const handler = () => setIsOpen(true);
+    window.addEventListener('open-teacher-sidebar', handler);
+    return () => window.removeEventListener('open-teacher-sidebar', handler);
+  }, []);
+
+  // ✅ Auto-close the drawer when the route changes
+  useEffect(() => {
+    closeMenu();
+  }, [pathname]);
+
   return (
     <>
-      {/* Mobile Hamburger Button */}
-      <button
-        onClick={() => setIsOpen(true)}
-        className="fixed top-4 left-4 z-50 p-2 bg-blue-800 text-white rounded-lg shadow-lg md:hidden"
-      >
-        <Menu size={24} />
-      </button>
+      {/* ✅ Old fixed hamburger REMOVED — the mobile top bar owns the hamburger now */}
 
       {/* Mobile Backdrop */}
       {isOpen && (

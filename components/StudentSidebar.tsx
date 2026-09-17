@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   FileText,
@@ -32,6 +32,18 @@ export default function StudentSidebar() {
   const [isOpen, setIsOpen] = useState(false);
 
   const closeMenu = () => setIsOpen(false);
+
+  // ✅ Listen for open-menu event from the mobile top bar (student layout)
+  useEffect(() => {
+    const handler = () => setIsOpen(true);
+    window.addEventListener('open-student-sidebar', handler);
+    return () => window.removeEventListener('open-student-sidebar', handler);
+  }, []);
+
+  // ✅ Auto-close the drawer when the route changes
+  useEffect(() => {
+    closeMenu();
+  }, [pathname]);
 
   return (
     <>

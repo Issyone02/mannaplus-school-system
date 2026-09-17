@@ -22,7 +22,7 @@ export default function TeacherLayout({ children }: { children: React.ReactNode}
         return;
       }
 
-      const { data } = await fetchUserRowByClerkId(user.id,)
+      const { data } = await fetchUserRowByClerkId(user.id, '*', user.emailAddresses[0]?.emailAddress)
 
       setIsAuthorized(data?.role === 'teacher');
       setChecking(false);
@@ -49,12 +49,25 @@ export default function TeacherLayout({ children }: { children: React.ReactNode}
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
+      {/* ✅ Mobile Top Bar — visible only on mobile inside the teacher portal */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-blue-800 text-white h-14 flex items-center justify-between px-4 shadow-md">
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent('open-teacher-sidebar'))}
+          className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+          aria-label="Open menu"
+        >
+          <Menu size={24} />
+        </button>
+        <h1 className="font-bold text-lg">Teacher Portal</h1>
+        <UserButton />
+      </div>
+
       {/* Sidebar takes its own space*/}
       <TeacherSidebar/>
       <IdleTimeout />
 
       {/* Main content takes the rest of the space. NO margin needed! */}
-      <main className="flex-1 overflow-y-auto p-4 md:p-8 pt-16 md:pt-8">
+      <main className="flex-1 overflow-y-auto p-4 md:p-8 pt-20 md:pt-8">
         {children}
       </main>
     </div>

@@ -31,7 +31,7 @@ export default function DashboardPage() {
       const userEmail = user.emailAddresses[0]?.emailAddress
       const isAdminEmail = ADMIN_EMAILS.includes(userEmail)
 
-      const { data } = await fetchUserRowByClerkId(user.id)
+      const { data } = await fetchUserRowByClerkId(user.id, '*', userEmail)
 
       // ✅ Force admin role if email matches
       const finalRole = (isAdminEmail ? 'admin' : (data?.role || null)) as UserRole
