@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
 import { supabase } from '@/lib/supabase'
@@ -433,23 +433,23 @@ export default function TeacherResultsPage() {
                       const average = studentResults.reduce((sum, r) => sum + r.total_score, 0) / (studentResults.length || 1)
                       const isExpanded = expandedStudent === studentId
                       return (
-                        <tr key={studentId}>
-                          <td colSpan={5}>
-                            <div className="border-b hover:bg-gray-50 cursor-pointer transition-colors p-3 grid grid-cols-5 items-center" onClick={() => setExpandedStudent(isExpanded ? null : studentId)}>
-                              <div className="text-gray-900 font-medium">{student?.admission_number}</div>
-                              <div className="text-gray-900">{student?.full_name}</div>
-                              <div className="text-center text-gray-900">{studentResults.length}</div>
-                              <div className="text-center"><span className={`px-2 py-1 rounded font-bold ${average >= 70 ? 'bg-green-100 text-green-800' : average >= 50 ? 'bg-blue-100 text-blue-800' : average >= 40 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>{average.toFixed(1)}</span></div>
-                              <div className="text-center">
-                                <div className="flex justify-center gap-2" onClick={e => e.stopPropagation()}>
+                        <Fragment key={studentId}>
+                          <tr className="border-b hover:bg-gray-50 cursor-pointer transition-colors" onClick={() => setExpandedStudent(isExpanded ? null : studentId)}>
+                            <td className="p-3 text-gray-900 font-medium whitespace-nowrap">{student?.admission_number}</td>
+                            <td className="p-3 text-gray-900">{student?.full_name}</td>
+                            <td className="p-3 text-center text-gray-900">{studentResults.length}</td>
+                            <td className="p-3 text-center"><span className={`px-2 py-1 rounded font-bold ${average >= 70 ? 'bg-green-100 text-green-800' : average >= 50 ? 'bg-blue-100 text-blue-800' : average >= 40 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>{average.toFixed(1)}</span></td>
+                            <td className="p-3 text-center">
+                              <div className="flex justify-center gap-2" onClick={e => e.stopPropagation()}>
                                   <button onClick={() => setPrintStudentId(studentId)} className="text-purple-600 hover:text-purple-800" title="Print Report Card"><Printer size={16} /></button>
                                   <button onClick={() => setEditReportStudentId(studentId)} className="text-green-600 hover:text-green-800" title="Edit Report Card Data"><ClipboardList size={16} /></button>
                                   <button onClick={() => { const first = studentResults[0]; if (first) { setEditingItem(first); setResultForm({ student_id: first.student_id, subject_id: first.subject_id, ca_score: first.ca_score.toString(), exam_score: first.exam_score.toString() }); setShowModal(true) } }} className="text-blue-600 hover:text-blue-800" title="Edit Result"><Edit size={16} /></button>
                                 </div>
-                              </div>
-                            </div>
-                            {isExpanded && (
-                              <div className="bg-gray-50 p-4 border-t">
+                            </td>
+                          </tr>
+                          {isExpanded && (
+                            <tr>
+                              <td colSpan={5} className="bg-gray-50 p-4 border-t">
                                 <h4 className="font-bold text-gray-900 mb-3">{student?.full_name} - All Subjects ({studentResults.length})</h4>
                                 <div className="overflow-x-auto">
                                   <table className="w-full min-w-[760px]text-sm">
@@ -488,10 +488,10 @@ export default function TeacherResultsPage() {
                                     </tbody>
                                   </table>
                                 </div>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
                       )
                     })}
                   </tbody>
