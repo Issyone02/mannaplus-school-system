@@ -415,7 +415,7 @@ export default function TeacherResultsPage() {
                 <div className="bg-orange-50 p-4 rounded-lg"><p className="text-sm text-orange-600 font-medium">Subjects</p><p className="text-2xl font-bold text-orange-900">{new Set(filteredResults.map(r => r.subject_id)).size}</p></div>
               </div>
 
-              <div className="bg-white border rounded-lg overflow-hidden">
+              <div className="bg-white border rounded-lg overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50 border-b">
                     <tr>
@@ -452,7 +452,7 @@ export default function TeacherResultsPage() {
                               <div className="bg-gray-50 p-4 border-t">
                                 <h4 className="font-bold text-gray-900 mb-3">{student?.full_name} - All Subjects ({studentResults.length})</h4>
                                 <div className="overflow-x-auto">
-                                  <table className="w-full text-sm">
+                                  <table className="w-full min-w-[760px]text-sm">
                                     <thead className="bg-gray-100">
                                       <tr>
                                         <th className="p-2 text-left">Subject</th>
@@ -498,6 +498,9 @@ export default function TeacherResultsPage() {
                 </table>
                 {filteredResults.length === 0 && <div className="p-8 text-center text-gray-600"><FileText size={48} className="mx-auto text-gray-300 mb-2" /><p className="font-bold">No results found</p></div>}
               </div>
+              {filteredResults.length > 0 && (
+                <p className="md:hidden mt-2 text-xs text-gray-500 text-center">Scroll horizontally to view all columns</p>
+              )}
             </div>
           )}
 
