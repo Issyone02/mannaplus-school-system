@@ -2,12 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   Bell,
   LogOut,
-  Menu,
   X,
 } from 'lucide-react';
 import { useClerk } from '@clerk/nextjs';
@@ -25,15 +24,22 @@ export default function ParentSidebar() {
 
   const closeMenu = () => setIsOpen(false);
 
+  // ✅ Listen for open-menu event from the mobile top bar (parent layout)
+  useEffect(() => {
+    const handler = () => setIsOpen(true);
+    window.addEventListener('open-parent-sidebar', handler);
+    return () => window.removeEventListener('open-parent-sidebar', handler);
+  }, []);
+
+  // ✅ Auto-close the drawer when the route changes
+  useEffect(() => {
+    closeMenu();
+  }, [pathname]);
+
   return (
     <>
-      {/* Mobile Hamburger Button */}
-      <button
-        onClick={() => setIsOpen(true)}
-        className="fixed top-4 left-4 z-50 p-2 bg-purple-800 text-white rounded-lg shadow-lg md:hidden"
-      >
-        <Menu size={24} />
-      </button>
+      {/* ✅ Old fixed hamburger REMOVED — the mobile top bar in app/parent/layout.tsx
+          now owns the hamburger, so nothing covers the school logo anymore. */}
 
       {/* Mobile Backdrop */}
       {isOpen && (

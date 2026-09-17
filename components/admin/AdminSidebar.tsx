@@ -39,8 +39,7 @@ const menuItems = [
   { name: 'Enquiries', href: '/admin/enquiries', icon: MailOpen },
   { name: 'User Management', href: '/admin/users', icon: Settings },
   { name: 'Settings', href: '/admin/settings', icon: Settings },
-  { name: 'Parent Portal', href: '/parent', icon: User },
-  { name: 'News & Events', href: '/admin/news', icon: Newspaper },
+   { name: 'News & Events', href: '/admin/news', icon: Newspaper },
 ];
 
 export default function AdminSidebar() {
@@ -54,6 +53,13 @@ export default function AdminSidebar() {
   useEffect(() => {
     closeMenu();
   }, [pathname]);
+
+  // ✅ Listen for open-menu event from the mobile top bar
+  useEffect(() => {
+    const handler = () => setIsOpen(true);
+    window.addEventListener('open-admin-sidebar', handler);
+    return () => window.removeEventListener('open-admin-sidebar', handler);
+  }, []);
 
   return (
     <>

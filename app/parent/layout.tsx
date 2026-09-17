@@ -1,6 +1,7 @@
 'use client';
 
-import { useUser } from '@clerk/nextjs';
+import { useUser, UserButton } from '@clerk/nextjs';
+import { Menu } from 'lucide-react';
 import { redirect } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -67,6 +68,19 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
+      {/* ✅ Mobile Top Bar — visible only on mobile inside the parent portal */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-purple-800 text-white h-14 flex items-center justify-between px-4 shadow-md">
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent('open-parent-sidebar'))}
+          className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+          aria-label="Open menu"
+        >
+          <Menu size={24} />
+        </button>
+        <h1 className="font-bold text-lg">Parent Portal</h1>
+        <UserButton />
+      </div>
+
       <ParentSidebar />
       <IdleTimeout />
 
@@ -80,7 +94,7 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
         />
       )}
 
-      <main className="flex-1 overflow-y-auto p-4 md:p-8 pt-16 md:pt-8">
+      <main className="flex-1 overflow-y-auto p-4 md:p-8 pt-20 md:pt-8">
         {children}
       </main>
     </div>

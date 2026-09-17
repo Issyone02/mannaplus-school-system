@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { ClerkProvider } from '@clerk/nextjs';
-import Navbar from '@/components/Navbar';
+import ConditionalNavbar from '@/components/ConditionalNavbar';
 import Footer from '@/components/Footer';
 import { Toaster } from 'react-hot-toast';
 import LayoutWrapper from '@/components/LayoutWrapper';
@@ -32,7 +32,7 @@ export default function RootLayout({
               backgroundImage: `linear-gradient(135deg, rgba(240, 253, 244, 0.80), rgba(255, 255, 255, 0.78), rgba(220, 252, 231, 0.82)), url('https://mecvtpnqmffqvniioudk.supabase.co/storage/v1/object/public/school-assets/backgrounds/app-bg.jpg')`,
             }}
           />
-          <Navbar />
+          <ConditionalNavbar />
           <main className="flex-grow">
             <LayoutWrapper>{children}</LayoutWrapper>
           </main>

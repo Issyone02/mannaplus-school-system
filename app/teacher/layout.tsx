@@ -7,6 +7,8 @@ import { supabase } from '@/lib/supabase';
 import TeacherSidebar from '@/components/teacher/TeacherSidebar' // adjust part if needed
 import IdleTimeout from '@/components/IdleTimeout'
 import { fetchUserRowByClerkId } from '@/lib/fetchUserRow'
+import { Menu } from 'lucide-react';
+import { UserButton } from '@clerk/nextjs';
 
 export default function TeacherLayout({ children }: { children: React.ReactNode}) {
   const { isSignedIn, isLoaded, user } = useUser();

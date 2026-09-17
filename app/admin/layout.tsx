@@ -5,6 +5,8 @@ import { redirect } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 import IdleTimeout from '@/components/IdleTimeout';
+import { Menu } from 'lucide-react';
+import { UserButton } from '@clerk/nextjs';
 
 /**
  * ✅ Admin access list — single source of truth (same pattern as app/dashboard/page.tsx).
@@ -53,9 +55,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
+      {/* ✅ Mobile Top Bar - visible only on mobile inside admin portal */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-green-800 text-white h-14 flex items-center justify-between px-4 shadow-md">
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent('open-admin-sidebar'))}
+          className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+          aria-label="Open menu"
+        >
+          <Menu size={24} />
+        </button>
+        <h1 className="font-bold text-lg">Admin Portal</h1>
+        <UserButton />
+      </div>
+
       <AdminSidebar />
       <IdleTimeout />
-      <main className="flex-1 overflow-y-auto p-4 md:p-8 pt-16 md:pt-8">
+      <main className="flex-1 overflow-y-auto p-4 md:p-8 pt-20 md:pt-8">
         {children}
       </main>
     </div>
