@@ -1,273 +1,366 @@
 'use client'
 
-import { Printer } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useUser } from '@clerk/nextjs'
+import { supabase } from '@/lib/supabase'
+import { ArrowLeft, FileText, Calendar, TrendingUp } from 'lucide-react'
+import toast, { Toaster } from 'react-hot-toast'
+import UnifiedReportCard from '@/components/UnifiedReportCard'
+import { calculateClassPositions } from '@/lib/classPositions'
+import { getSchoolAssets, getClassTeacherSignature } from '@/lib/schoolAssets'
+import { enrichResultsWithPreviousTerms } from '@/lib/reportCardData'
 
-interface UnifiedReportCardProps {
-  student: { full_name: string; admission_number: string; class_name: string; position?: string | number; no_in_class?: string | number }
-  results: any[]
-  session: string
-  term: string
-  attendance?: { opened: number; present: number; punctual: number; beg_term: string; end_term: string; next_term: string }
-  conductRatings?: Record<string, string>
-  physicalSkills?: Record<string, string>
-  healthComment?: string
-  teacherComment?: string
-  principalComment?: string
-  className?: string
-  teacherSignatureUrl?: string | null
-  principalSignatureUrl?: string |null
-  stampUrl?: string | null
-  teacherDate?: string | null
-  headTeacherDate?: string | null
+const getCurrentSession = () => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth() + 1
+  return month >= 9 ? `${year}/${year + 1}` : `${year - 1}/${year}`
 }
 
-const CONDUCT = ['Attentiveness', 'Cleanliness', 'Emotional Balance', 'Honesty', 'Leadership', 'Maturity', 'Politeness', 'Punctuality']
-const PHYSICAL = ['Handwriting', 'Verbal Fluency', 'Debate/Quiz', 'Sports', 'Drawing & Painting', 'Musical Skills', 'Handling Tools']
+const getCurrentTerm = () => {
+  const month = new Date().getMonth() + 1
+  if (month >= 9) return 'First Term'
+  if (month <= 3) return 'Second Term'
+  return 'Third Term'
+}
 
-export default function UnifiedReportCard(props: UnifiedReportCardProps) {
-  const { student, results, session, term, className = '' } = props
+export default function StudentResultsPage() {
+  const { user, isLoaded } = useUser()
+  const [loading, setLoading] = useState(true)
+  const [student, setStudent] = useState<any>(null)
+  const [results, setResults] = useState<any[]>([])
+  const [selectedTerm, setSelectedTerm] = useState(getCurrentTerm())
+  const [selectedSession, setSelectedSession] = useState(getCurrentSession())
+  const [positionInfo, setPositionInfo] = useState<{ position_text: string; total_students: number } | null>(null)
+  const [reportData, setReportData] = useState<any>(null)
+  const [signUrls, setSignUrls] = useState<{ teacher?: string | null; principal?: string | null; stamp?: string | null }>({})
+  const [enrichedResults, setEnrichedResults] = useState<any[]>([])
 
-  const termNum = term.toLowerCase().includes('first') ? '1ST' : term.toLowerCase().includes('second') ? '2ND' : '3RD'
+  const termOptions = ['First Term', 'Second Term', 'Third Term']
+  const generateSessionOptions = () => {
+    const currentYear = new Date().getFullYear()
+    const sessions = []
+    for (let i = currentYear - 3; i <= currentYear + 1; i++) sessions.push(`${i}/${i + 1}`)
+    return sessions
+  }
+  const sessionOptions = generateSessionOptions()
 
-  // ✅ TERM-AWARE COLUMNS:
-  // 1st Term card  → CA, Exam, Total, Position, Remarks ONLY
-  // 2nd Term card  → + First Term column
-  // 3rd Term card  → + First Term + Second Term columns
-  const showFirstTermCol = !term.toLowerCase().includes('first')
-  const showSecondTermCol = term.toLowerCase().includes('third')
+  useEffect(() => {
+    if (isLoaded && user) fetchStudent()
+  }, [isLoaded, user])
 
-  const handlePrint = () => {
-    if (results.length === 0) return
+  useEffect(() => {
+    if (student?.id) {
+      fetchResults()
+      fetchReportData()
+    }
+  }, [student, selectedTerm, selectedSession])
 
-    const isPrimary = student.class_name.toLowerCase().includes('primary') || student.class_name.toLowerCase().includes('nursery')
-    const logoToUse = isPrimary
-      ? "https://mecvtpnqmffqvniioudk.supabase.co/storage/v1/object/public/school-assets/logo_primary.png"
-      : "https://mecvtpnqmffqvniioudk.supabase.co/storage/v1/object/public/school-assets/logo_secondary.png"
+  useEffect(() => {
+    if (results.length > 0 && student?.id) {
+      enrichResultsWithPreviousTerms(results, student.id, selectedSession).then(setEnrichedResults)
+    } else {
+      setEnrichedResults([])
+    }
+  }, [results, selectedSession, student])
 
-    let grandTotal = 0
-    results.forEach(r => { grandTotal += (r.ca_score || 0) + (r.exam_score || 0) })
-    const maxTotal = results.length * 100
-    const overallPct = maxTotal > 0 ? ((grandTotal / maxTotal) * 100).toFixed(1) : '0'
+  const fetchStudent = async () => {
+    try {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('id')
+        .eq('clerk_id', user?.id)
+        .single()
 
-    const getGrade = (p: number) => p >= 75 ? 'A1' : p >= 70 ? 'B2' : p >= 65 ? 'B3' : p >= 60 ? 'C4' : p >= 55 ? 'C5' : p >= 50 ? 'C6' : p >= 45 ? 'D7' : p >= 40 ? 'E8' : 'F9'
-    const overallGrade = getGrade(parseFloat(overallPct))
-    const passed = parseFloat(overallPct) >= 40
+      if (!userData) {
+        toast.error('User account not found')
+        setLoading(false)
+        return
+      }
 
-    // Subject rows (columns adapt to the term)
-    let subjectsHtml = ''
-    results.forEach((r, i) => {
-      const ca = r.ca_score || 0, ex = r.exam_score || 0, tot = ca + ex
-      const ft = (r.first_term_total === null || r.first_term_total === undefined) ? '-' : r.first_term_total
-      const st = (r.second_term_total === null || r.second_term_total === undefined) ? '-' : r.second_term_total
-      subjectsHtml += `<tr>
-        <td>${i + 1}. ${r.subject_name || 'Unknown'}</td>
-        <td style="text-align:center">${ca}</td>
-        <td style="text-align:center">${ex}</td>
-        <td style="text-align:center;font-weight:bold">${tot}</td>
-        <td style="text-align:center">${r.position || '-'}</td>
-        ${showFirstTermCol ? `<td style="text-align:center">${ft}</td>` : ''}
-        ${showSecondTermCol ? `<td style="text-align:center">${st}</td>` : ''}
-        <td style="text-align:center">${r.remark || (tot >= 40 ? 'Pass' : 'Fail')}</td>
-      </tr>`
+      const { data: studentData } = await supabase
+        .from('students')
+        .select('id, full_name, admission_number, class_id')
+        .eq('user_id', userData.id)
+        .single()
+
+      if (!studentData) {
+        toast.error('Student record not found')
+        setLoading(false)
+        return
+      }
+
+      const { data: classData } = await supabase
+        .from('classes')
+        .select('class_name, arm, department')
+        .eq('id', studentData.class_id)
+        .single()
+
+      setStudent({
+        ...studentData,
+        class_name: classData ? `${classData.class_name} ${classData.arm ? `(${classData.arm})` : ''}` : 'Unknown'
+      })
+    } catch (error) {
+      console.error('Failed to fetch student:', error)
+      toast.error('Failed to load student data')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchResults = async () => {
+    if (!student?.class_id) return
+    const { data, error } = await supabase
+      .from('results')
+      .select(`
+        id,
+        ca_score,
+        exam_score,
+        total_score,
+        grade,
+        remark,
+        subject_id,
+        subjects:subject_id (name)
+      `)
+      .eq('student_id', student.id)
+      .eq('term', selectedTerm)
+      .eq('session', selectedSession)
+
+    if (error) {
+      console.error('Failed to fetch results:', error)
+      setResults([])
+      return
+    }
+
+    const enriched = (data || []).map((r: any) => ({
+      ...r,
+      subject_name: r.subjects?.name || 'Unknown',
+      position: '-'
+    }))
+    setResults(enriched)
+  }
+
+  const fetchReportData = async () => {
+    if (!student?.id) return
+
+    const { data: report } = await supabase
+      .from('student_reports')
+      .select('*')
+      .eq('student_id', student.id)
+      .eq('term', selectedTerm)
+      .eq('session', selectedSession)
+      .single()
+
+    setReportData(report || null)
+
+    if (student.class_id) {
+      const positions = await calculateClassPositions(student.class_id, selectedTerm, selectedSession)
+      setPositionInfo(positions.get(student.id) || null)
+    }
+
+    const assets = await getSchoolAssets()
+    setSignUrls({
+      teacher: student.class_id ? await getClassTeacherSignature(student.class_id) : null,
+      principal: assets.principal_signature?.url || null,
+      stamp: assets.school_stamp?.url || null,
     })
-
-    // Rating tables helper
-    const ratingRows = (items: string[], ratings?: Record<string, string>) => items.map(item => {
-      const v = ratings?.[item] || 'Good'
-      return `<tr>
-        <td>${item}</td>
-        <td style="text-align:center">${v === 'Excellent' ? '✓' : ''}</td>
-        <td style="text-align:center">${v === 'Good' ? '✓' : ''}</td>
-        <td style="text-align:center">${v === 'Fair' ? '✓' : ''}</td>
-        <td style="text-align:center">${v === 'Poor' ? '✓' : ''}</td>
-      </tr>`
-    }).join('')
-
-    const att = props.attendance || { opened: 0, present: 0, punctual: 0, beg_term: '6th April 2026', end_term: '6th July 2026', next_term: 'To be announced' }
-
-    const printWindow = window.open('', '_blank', 'width=900,height=1100')
-    if (!printWindow) { alert('Please allow popups to print report cards'); return }
-
-    const htmlContent = `<!DOCTYPE html>
-<html>
-<head>
-<title>Report Card - ${student.full_name}</title>
-<style>
-  @media print { @page { size: A4; margin: 6mm; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-  * { box-sizing: border-box; }
-  body { 
-    font-family: 'Times New Roman', Arial, serif; 
-    font-size: 10px; 
-    line-height: 1.25; 
-    color: #000; 
-    margin: 0; 
-    padding: 4px; 
-    background: #fff; 
-    font-weight: bold;
   }
-  .header { display: flex; align-items: center; gap: 10px; border-bottom: 2px solid #16a34a; padding-bottom: 5px; margin-bottom: 6px; }
-  .logo { width: 80px; height: 80px; object-fit: contain; }
-  .school-info { flex: 1; text-align: center; }
-  h1 { margin: 0; font-size: 16px; color: #16a34a; text-transform: uppercase; font-weight: bold; }
-  h2 { margin: 1px 0; font-size: 11px; font-style: italic; color: #333; font-weight: bold; }
-  .addr { margin: 1px 0; font-size: 9px; color: #555; font-weight: bold; }
-  .title { text-align: center; font-size: 13px; font-weight: bold; margin: 5px 0; text-transform: uppercase; }
-  .srow { display: flex; justify-content: space-between; font-size: 10px; border-bottom: 1px solid #999; padding-bottom: 3px; margin-bottom: 6px; font-weight: bold; }
-  .srow span { flex: 1; }
-  .sec { font-weight: bold; font-size: 11px; margin: 6px 0 3px 0; }
-  table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
-  th, td { border: 1px solid #000; padding: 3px 4px; font-size: 9.5px; font-weight: bold; }
-  th { background: #f0fdf4; text-align: center; font-size: 9px; font-weight: bold; }
-  .two { display: flex; gap: 6px; }
-  .two > div { flex: 1; }
-  .sum td { font-weight: bold; background: #f0fdf4; }
-  .sig { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 14px; }
-  .sig-box { width: 30%; text-align: center; font-size: 9px; font-weight: bold; }
-  .sig-line { border-top: 1px solid #000; padding-top: 3px; }
-  .stamp { 
-    width: 72px; height: 72px; 
-    border: 2px double #16a34a; 
-    border-radius: 50%; 
-    display: flex; align-items: center; justify-content: center; 
-    color: #16a34a; font-weight: bold; font-size: 8px; text-align: center; 
-    transform: rotate(-15deg); opacity: 0.85; margin: 0 auto; 
+
+  if (!isLoaded || loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
+      </div>
+    )
   }
-</style>
-</head>
-<body>
-  <div class="header">
-    <img src="${logoToUse}" class="logo" alt="Logo" />
-    <div class="school-info">
-      <h1>Mannaplus Group of Schools</h1>
-      <h2>Motto: Grooming the Future Leaders</h2>
-      <p class="addr">34, Orisun Ibukun Avenue, Arinko Sango Ota, Ogun State | +23434287228, +2348034967499 | mannapluscollege@school.com</p>
-    </div>
-  </div>
 
-  <div class="title">Continuous Assessment Report<br/>${termNum} TERM ${session} SESSION</div>
-
-  <div class="srow">
-    <span><strong>Name of Student:</strong> ${student.full_name}</span>
-    <span><strong>Class:</strong> ${student.class_name}</span>
-    <span><strong>No in Class:</strong> ${student.no_in_class || '-'}</span>
-    <span><strong>Position:</strong> ${student.position || '-'}</span>
-  </div>
-
-  <div class="sec">1. ATTENDANCE</div>
-  <table>
-    <tr>
-      <td style="width:28%"><strong>No of times school opened</strong></td><td style="width:10%;text-align:center">${att.opened}</td>
-      <td style="width:24%"><strong>No of times present</strong></td><td style="width:10%;text-align:center">${att.present}</td>
-      <td style="width:18%"><strong>No of times punctual</strong></td><td style="width:10%;text-align:center">${att.punctual}</td>
-    </tr>
-    <tr>
-      <td><strong>Beginning of Term</strong></td><td colspan="2">${att.beg_term}</td>
-      <td><strong>End of Term</strong></td><td colspan="2">${att.end_term}</td>
-    </tr>
-    <tr>
-      <td><strong>Beginning of Next Term</strong></td><td colspan="5">${att.next_term}</td>
-    </tr>
-  </table>
-
-  <div class="two">
-    <div>
-      <div class="sec">2. OBSERVATIONS ON CONDUCT</div>
-      <table>
-        <thead><tr><th style="width:52%;text-align:left">Qualities</th><th>Exc</th><th>Good</th><th>Fair</th><th>Poor</th></tr></thead>
-        <tbody>${ratingRows(CONDUCT, props.conductRatings)}</tbody>
-      </table>
-    </div>
-    <div>
-      <div class="sec">3. PERFORMANCE IN PHYSICAL SKILLS</div>
-      <table>
-        <thead><tr><th style="width:52%;text-align:left">Activities</th><th>Exc</th><th>Good</th><th>Fair</th><th>Poor</th></tr></thead>
-        <tbody>${ratingRows(PHYSICAL, props.physicalSkills)}</tbody>
-      </table>
-    </div>
-  </div>
-
-  <div class="sec">4. PERFORMANCE IN SUBJECTS</div>
-  <table>
-    <thead>
-      <tr>
-        <th style="width:30%;text-align:left">SUBJECTS</th>
-        <th style="width:9%">CA (30)</th>
-        <th style="width:9%">Exam (70)</th>
-        <th style="width:10%">Total (100)</th>
-        <th style="width:8%">Position</th>
-        ${showFirstTermCol ? '<th style="width:11%">First Term</th>' : ''}
-        ${showSecondTermCol ? '<th style="width:11%">Second Term</th>' : ''}
-        <th style="width:12%">Remarks</th>
-      </tr>
-      <tr class="sum">
-        <td>Max. Obtainable</td><td style="text-align:center">30</td><td style="text-align:center">70</td><td style="text-align:center">100</td><td></td>
-        ${showFirstTermCol ? '<td style="text-align:center">100</td>' : ''}
-        ${showSecondTermCol ? '<td style="text-align:center">100</td>' : ''}
-        <td></td>
-      </tr>
-    </thead>
-    <tbody>${subjectsHtml}
-      <tr class="sum">
-        <td>TOTAL</td><td></td><td></td><td style="text-align:center">${grandTotal}/${maxTotal}</td><td></td>
-        ${showFirstTermCol ? '<td></td>' : ''}
-        ${showSecondTermCol ? '<td></td>' : ''}
-        <td style="text-align:center">${overallGrade}</td>
-      </tr>
-    </tbody>
-  </table>
-
-  <table>
-    <tr class="sum">
-      <td style="width:25%">Overall Total: ${grandTotal}/${maxTotal}</td>
-      <td style="width:25%">Overall Percentage: ${overallPct}%</td>
-      <td style="width:25%">Grade: ${overallGrade}</td>
-      <td style="width:25%">Status: ${passed ? 'PASSED' : 'FAILED'}</td>
-    </tr>
-  </table>
-
-  <div class="sec">8. HEALTH / PHYSICAL GROWTH</div>
-  <table>
-    <tr><td style="width:30%"><strong>General Comments on Health</strong></td><td>${props.healthComment || 'Student is fit and healthy. No known medical conditions.'}</td></tr>
-  </table>
-
-  <div class="sec">GENERAL COMMENTS</div>
-  <table>
-    <tr><td style="width:22%"><strong>Class Teacher's Comment</strong></td><td>${props.teacherComment || 'Good performance'}</td><td style="width:12%"><strong>Signature</strong></td><td style="width:18%">${props.teacherSignatureUrl ? `<img src="${props.teacherSignatureUrl}" style="height:35px;object-fit:contain" alt=""/>` : ''}</td></tr>
-    <tr><td><strong>Head Teacher's Comments</strong></td><td colspan="3">${props.principalComment || 'Keep it up'}</td></tr>
-    <tr><td><strong>Parent's Comment</strong></td><td colspan="3" style="height:22px"></td></tr>
-  </table>
-
-  <div class="sig">
-    <div class="sig-box">
-      ${props.teacherSignatureUrl ? `<img src="${props.teacherSignatureUrl}" style="height:45px;object-fit:contain;margin-bottom:2px" alt=""/>` : ''}
-      <div class="sig-line">Class Teacher's Signature</div>Date: ${props.teacherDate ? new Date(props.teacherDate).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'}) : '______________'}
-    </div>
-    <div class="sig-box">
-      ${props.stampUrl ? `<img src="${props.stampUrl}" style="width:90px;height:90px;object-fit:contain" alt="School Stamp"/>` : `<div class="stamp">OFFICIAL<br/>SCHOOL<br/>STAMP</div>`}
-      <div style="margin-top:2px">Affix School Stamp &<br/>Authorized Signature Here</div>
-    </div>
-    <div class="sig-box">
-      ${props.principalSignatureUrl ? `<img src="${props.principalSignatureUrl}" style="height:45px;object-fit:contain;margin-bottom:2px" alt=""/>` : ''}
-      <div class="sig-line">Head Teacher's Signature</div>Date: ${props.headTeacherDate ? new Date(props.headTeacherDate).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'}) : '______________'}
-    </div>
-  </div>
-
-  <script>window.onload = function() { setTimeout(() => window.print(), 250); }</script>
-</body>
-</html>`
-
-    printWindow.document.write(htmlContent)
-    printWindow.document.close()
-  }
+  const totalScore = results.reduce((sum, r) => sum + (r.total_score || 0), 0)
+  const maxScore = results.length * 100
+  const percentage = maxScore > 0 ? ((totalScore / maxScore) * 100).toFixed(1) : '0'
 
   return (
-    <button
-      onClick={handlePrint}
-      disabled={results.length === 0}
-      className={`flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded font-bold hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed ${className}`}
-    >
-      <Printer size={16} />
-      Print / Download Report Card
-    </button>
+    <div className="min-h-screen bg-gray-50">
+      <Toaster position="top-right" />
+
+      <div className="bg-white shadow border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <button
+            onClick={() => window.history.back()}
+            className="flex items-center gap-2 text-gray-700 hover:text-gray-900"
+          >
+            <ArrowLeft size={20} /> Back to Dashboard
+          </button>
+        </div>
+      </div>
+
+      <main className="max-w-7xl mx-auto px-4 py-8">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-900">My Results</h1>
+          <p className="text-gray-600">{student?.full_name} • {student?.admission_number}</p>
+        </div>
+
+        {/* Filters */}
+        <div className="bg-white rounded-xl shadow-md p-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">Term</label>
+              <select
+                value={selectedTerm}
+                onChange={(e) => setSelectedTerm(e.target.value)}
+                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-gray-900"
+              >
+                {termOptions.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">Session</label>
+              <select
+                value={selectedSession}
+                onChange={(e) => setSelectedSession(e.target.value)}
+                className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 text-gray-900"
+              >
+                {sessionOptions.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div className="flex items-end">
+              <UnifiedReportCard
+                student={{
+                  full_name: student.full_name,
+                  admission_number: student.admission_number,
+                  class_name: student.class_name,
+                  position: positionInfo ? `${positionInfo.position_text} of ${positionInfo.total_students}` : (reportData?.position_in_class || '-'),
+                  no_in_class: reportData?.total_students_in_class || positionInfo?.total_students || '-'
+                }}
+                results={enrichedResults}
+                session={selectedSession}
+                term={selectedTerm}
+                attendance={{
+                  opened: reportData?.attendance_opened ?? 0,
+                  present: reportData?.attendance_present ?? 0,
+                  punctual: reportData?.attendance_punctual ?? 0,
+                  beg_term: reportData?.term_begins || 'N/A',
+                  end_term: reportData?.term_ends || 'N/A',
+                  next_term: reportData?.next_term_begins || 'N/A'
+                }}
+                conductRatings={reportData?.conduct_ratings || {}}
+                physicalSkills={reportData?.physical_skills || {}}
+                healthComment={reportData?.health_comment || 'Student is fit and healthy.'}
+                teacherComment={reportData?.teacher_comment || 'Good performance'}
+                principalComment={reportData?.principal_comment || 'Keep it up'}
+                teacherSignatureUrl={signUrls.teacher}
+                principalSignatureUrl={signUrls.principal}
+                stampUrl={signUrls.stamp}
+                teacherDate={reportData?.teacher_date || null}
+                headTeacherDate={reportData?.head_teacher_date || null}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 font-medium">Total Subjects</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">{results.length}</p>
+              </div>
+              <FileText size={32} className="text-blue-600" />
+            </div>
+          </div>
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 font-medium">Total Score</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">{totalScore}/{maxScore}</p>
+              </div>
+              <TrendingUp size={32} className="text-green-600" />
+            </div>
+          </div>
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 font-medium">Percentage</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">{percentage}%</p>
+              </div>
+              <Calendar size={32} className="text-purple-600" />
+            </div>
+          </div>
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 font-medium">Position</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">
+                  {positionInfo ? `${positionInfo.position_text}` : '-'}
+                </p>
+              </div>
+              <TrendingUp size={32} className="text-orange-600" />
+            </div>
+          </div>
+        </div>
+
+        {/* Results Table */}
+        <div className="bg-white rounded-xl shadow-md overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[800px]">
+              <thead className="bg-gray-50 border-b-2 border-gray-200">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Subject</th>
+                  <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">CA (30)</th>
+                  <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Exam (70)</th>
+                  <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Total</th>
+                  <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Grade</th>
+                  <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Remark</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {results.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                      <FileText size={48} className="mx-auto text-gray-300 mb-4" />
+                      <p className="font-bold">No results available for this term</p>
+                      <p className="text-sm mt-2">Results will appear here once your teacher enters them</p>
+                    </td>
+                  </tr>
+                ) : (
+                  results.map((result) => (
+                    <tr key={result.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {result.subject_name}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                        {result.ca_score}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                        {result.exam_score}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-center">
+                        {result.total_score}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <span className={`px-2 py-1 rounded text-xs font-bold ${
+                          result.grade?.startsWith('A') ? 'bg-green-100 text-green-800' :
+                          result.grade?.startsWith('B') ? 'bg-blue-100 text-blue-800' :
+                          result.grade?.startsWith('C') ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {result.grade}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-center">
+                        {result.remark}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        {results.length > 0 && (
+          <p className="md:hidden mt-2 text-xs text-gray-500 text-center"> Swipe the table sideways to see Grade & Remark 'n </p>
+        )}
+      </main>
+    </div>
   )
 }

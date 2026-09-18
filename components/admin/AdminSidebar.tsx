@@ -63,16 +63,6 @@ export default function AdminSidebar() {
 
   return (
     <>
-      {/* 1. Mobile Hamburger Button (Hidden on Desktop) */}
-      {!isOpen && (
-        <button
-          onClick={() => setIsOpen(true)}
-          className="fixed top-4 left-4 z-[60] p-2 bg-green-800 text-white rounded-lg shadow-lg md:hidden"
-          aria-label="Open menu"
-        >
-          <Menu size={24} />
-        </button>
-      )}
 
       {/* 2. Mobile Backdrop (Hidden on Desktop) */}
       {isOpen && (

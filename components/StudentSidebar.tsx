@@ -47,13 +47,7 @@ export default function StudentSidebar() {
 
   return (
     <>
-      {/* Mobile Hamburger Button */}
-      <button
-        onClick={() => setIsOpen(true)}
-        className="fixed top-4 left-4 z-50 p-2 bg-orange-600 text-white rounded-lg shadow-lg md:hidden"
-      >
-        <Menu size={24} />
-      </button>
+      
 
       {/* Mobile Backdrop */}
       {isOpen && (

@@ -41,7 +41,7 @@ export default function StudentTimetablePage() {
 
       // 3. Fetch timetable for student's class
       const { data: timetableData } = await supabase
-        .from('timetables')
+        .from('timetable')
         .select(`
           day_of_week,
           start_time,
