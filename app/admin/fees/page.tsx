@@ -498,7 +498,7 @@ export default function FeeManagementPage() {
         <div className="p-4">
           <input type="text" placeholder="Search fee, class, term, session, amount, student, receipt..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full p-2 border rounded mb-4 text-gray-900 placeholder-gray-500" />
           
-          {activeTab === 'structures' && (
+                    {activeTab === 'structures' && (
             <div>
               {/* ✅ View toggle */}
               <div className="flex gap-2 mb-4">
@@ -559,88 +559,92 @@ export default function FeeManagementPage() {
                   </div>
                 )
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr>
-                        <th className="p-2 text-left text-gray-900 font-bold">Name</th>
-                        <th className="text-gray-900 font-bold">Class</th>
-                        <th className="text-gray-900 font-bold">Term</th>
-                        <th className="text-gray-900 font-bold">Session</th>
-                        <th className="text-gray-900 font-bold">Amount</th>
-                        <th className="text-gray-900 font-bold">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredStructures.map(f => {
-                        const cls = classes.find(c => c.id === f.class_id)
-                        const displayClassName = cls ? formatClassName(cls) : f.class_id
-                        return (
-                          <tr key={f.id} className="border-t hover:bg-gray-50">
-                            <td className="p-2 text-gray-900 font-medium">{f.name}</td>
-                            <td className="text-gray-900">{displayClassName}</td>
-                            <td className="text-gray-900">{f.term}</td>
-                            <td className="text-gray-900">{f.session}</td>
-                            <td className="text-gray-900 font-bold">₦{f.amount.toLocaleString()}</td>
-                            <td>
-                              <button onClick={() => { setEditingItem(f); setStructureForm({ name: f.name, class_ids: [f.class_id], term: f.term, session: f.session, amount: f.amount.toString(), description: f.description || '', due_date: f.due_date || '', active: f.active }); setModalType('structure'); setShowModal(true) }} className="text-blue-600 hover:text-blue-800 mr-2">
-                                <Edit size={16}/>
-                              </button>
-                              <button onClick={() => handleDeleteStructure(f.id)} className="text-red-600 hover:text-red-800">
-                                <Trash2 size={16}/>
-                              </button>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[800px]">
+                      <thead>
+                        <tr>
+                          <th className="p-2 text-left text-gray-900 font-bold">Name</th>
+                          <th className="text-gray-900 font-bold">Class</th>
+                          <th className="text-gray-900 font-bold">Term</th>
+                          <th className="text-gray-900 font-bold">Session</th>
+                          <th className="text-gray-900 font-bold">Amount</th>
+                          <th className="text-gray-900 font-bold">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredStructures.map(f => {
+                          const cls = classes.find(c => c.id === f.class_id)
+                          const displayClassName = cls ? formatClassName(cls) : f.class_id
+                          return (
+                            <tr key={f.id} className="border-t hover:bg-gray-50">
+                              <td className="p-2 text-gray-900 font-medium">{f.name}</td>
+                              <td className="text-gray-900">{displayClassName}</td>
+                              <td className="text-gray-900">{f.term}</td>
+                              <td className="text-gray-900">{f.session}</td>
+                              <td className="text-gray-900 font-bold">₦{f.amount.toLocaleString()}</td>
+                              <td>
+                                <button onClick={() => { setEditingItem(f); setStructureForm({ name: f.name, class_ids: [f.class_id], term: f.term, session: f.session, amount: f.amount.toString(), description: f.description || '', due_date: f.due_date || '', active: f.active }); setModalType('structure'); setShowModal(true) }} className="text-blue-600 hover:text-blue-800 mr-2">
+                                  <Edit size={16}/>
+                                </button>
+                                <button onClick={() => handleDeleteStructure(f.id)} className="text-red-600 hover:text-red-800">
+                                  <Trash2 size={16}/>
+                                </button>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="md:hidden mt-2 text-xs text-gray-500 text-center">← Swipe the table sideways to see Actions →</p>
+                </>
               )}
             </div>
           )}
 
           {activeTab === 'payments' && (
             <>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr>
-                    <th className="p-2 text-left text-gray-900 font-bold">Receipt</th>
-                    <th className="text-gray-900 font-bold">Student</th>
-                    <th className="text-gray-900 font-bold">Amount</th>
-                    <th className="text-gray-900 font-bold">Date & Time</th>
-                    <th className="text-gray-900 font-bold">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {payments.map(p => (
-                    <tr key={p.id} className="border-t hover:bg-gray-50">
-                      <td className="p-2 text-gray-900 font-medium">{p.receipt_number}</td>
-                      <td className="text-gray-900 font-medium">{p.student_name}</td>
-                      <td className="text-gray-900 font-bold">₦{p.amount_paid.toLocaleString()}</td>
-                      <td className="text-gray-900">{new Date(p.created_at || p.payment_date).toLocaleDateString()}</td>
-                      <td>
-                        <button onClick={() => { setSelectedReceipt(p); setModalType('view'); setShowModal(true) }} className="text-purple-600 hover:text-purple-800" title="View receipt">
-                          <Eye size={16}/>
-                        </button>
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[800px]">
+                  <thead>
+                    <tr>
+                      <th className="p-2 text-left text-gray-900 font-bold">Receipt</th>
+                      <th className="text-gray-900 font-bold">Student</th>
+                      <th className="text-gray-900 font-bold">Amount</th>
+                      <th className="text-gray-900 font-bold">Date & Time</th>
+                      <th className="text-gray-900 font-bold">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {/* ✅ Payments pagination */}
-            <div className="flex items-center justify-between mt-4 flex-wrap gap-3">
-              <p className="text-sm text-gray-600">
-                Showing <span className="font-bold">{payments.length === 0 ? 0 : (paymentsPage - 1) * paymentsPageSize + 1}</span>–<span className="font-bold">{(paymentsPage - 1) * paymentsPageSize + payments.length}</span> of <span className="font-bold">{paymentsTotal}</span> payments
-              </p>
-              <div className="flex gap-2 items-center">
-                <button onClick={() => setPaymentsPage(p => Math.max(1, p - 1))} disabled={paymentsPage === 1} className="px-3 py-1 border rounded font-bold text-gray-700 disabled:opacity-50">Previous</button>
-                <span className="px-3 py-1 text-sm font-bold text-gray-700">Page {paymentsPage} of {Math.max(1, Math.ceil(paymentsTotal / paymentsPageSize))}</span>
-                <button onClick={() => setPaymentsPage(p => p + 1)} disabled={paymentsPage * paymentsPageSize >= paymentsTotal} className="px-3 py-1 border rounded font-bold text-gray-700 disabled:opacity-50">Next</button>
+                  </thead>
+                  <tbody>
+                    {payments.map(p => (
+                      <tr key={p.id} className="border-t hover:bg-gray-50">
+                        <td className="p-2 text-gray-900 font-medium">{p.receipt_number}</td>
+                        <td className="text-gray-900 font-medium">{p.student_name}</td>
+                        <td className="text-gray-900 font-bold">₦{p.amount_paid.toLocaleString()}</td>
+                        <td className="text-gray-900">{new Date(p.created_at || p.payment_date).toLocaleDateString()}</td>
+                        <td>
+                          <button onClick={() => { setSelectedReceipt(p); setModalType('view'); setShowModal(true) }} className="text-purple-600 hover:text-purple-800" title="View receipt">
+                            <Eye size={16}/>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            </div>
+              <p className="md:hidden mt-2 text-xs text-gray-500 text-center">← Swipe the table sideways to see Date & Actions →</p>
+              {/* ✅ Payments pagination */}
+              <div className="flex items-center justify-between mt-4 flex-wrap gap-3">
+                <p className="text-sm text-gray-600">
+                  Showing <span className="font-bold">{payments.length === 0 ? 0 : (paymentsPage - 1) * paymentsPageSize + 1}</span>–<span className="font-bold">{(paymentsPage - 1) * paymentsPageSize + payments.length}</span> of <span className="font-bold">{paymentsTotal}</span> payments
+                </p>
+                <div className="flex gap-2 items-center">
+                  <button onClick={() => setPaymentsPage(p => Math.max(1, p - 1))} disabled={paymentsPage === 1} className="px-3 py-1 border rounded font-bold text-gray-700 disabled:opacity-50">Previous</button>
+                  <span className="px-3 py-1 text-sm font-bold text-gray-700">Page {paymentsPage} of {Math.max(1, Math.ceil(paymentsTotal / paymentsPageSize))}</span>
+                  <button onClick={() => setPaymentsPage(p => p + 1)} disabled={paymentsPage * paymentsPageSize >= paymentsTotal} className="px-3 py-1 border rounded font-bold text-gray-700 disabled:opacity-50">Next</button>
+                </div>
+              </div>
             </>
           )}
 
@@ -674,7 +678,7 @@ export default function FeeManagementPage() {
               </div>
 
               <div className="bg-white rounded shadow overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full min-w-[900px]">
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="p-3 text-left text-gray-900 font-bold">Student</th>
@@ -736,6 +740,7 @@ export default function FeeManagementPage() {
                   </tbody>
                 </table>
               </div>
+              <p className="md:hidden mt-2 text-xs text-gray-500 text-center">← Swipe the table sideways to see Status, Date & Actions →</p>
             </div>
           )}
         </div>
