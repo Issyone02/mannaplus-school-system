@@ -45,7 +45,7 @@ export default function SignatureUpload({ currentUrl, label, storagePath, onSave
   }
 
   return (
-    <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
+        <div className="center-mobile bg-white rounded-lg shadow p-6 border border-gray-200">
       <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
         <PenLine size={18} /> {label}
       </h3>

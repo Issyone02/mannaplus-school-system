@@ -7,8 +7,8 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-4 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* School Info */}
-          <div className="md:col-span-2">
-            <div className="flex items-center space-x-3 mb-4">
+            <div className="md:col-span-2 text-center md:text-left">
+            <div className="flex items-center justify-center md:justify-start space-x-3 mb-4">
               <img
                 src="https://mecvtpnqmffqvniioudk.supabase.co/storage/v1/object/public/school-assets/school-logo.png"
                 alt="Mannaplus Group of Schools"
@@ -29,7 +29,7 @@ export default function Footer() {
           </div>
 
           {/* Quick Links */}
-          <div>
+          <div className="text-center md:text-left">
             <h4 className="text-lg font-bold mb-4">Quick Links</h4>
             <ul className="space-y-2">
               <li><Link href="/about" className="text-gray-400 hover:text-green-400 transition-colors">About Us</Link></li>
@@ -41,7 +41,7 @@ export default function Footer() {
           </div>
 
           {/* Portals */}
-          <div>
+          <div className="text-center md:text-left">
             <h4 className="text-lg font-bold mb-4">Portals</h4>
             <ul className="space-y-2">
               <li><Link href="/admin" className="text-gray-400 hover:text-green-400 transition-colors">Admin Portal</Link></li>
@@ -59,7 +59,7 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="border-t border-gray-800 pt-6 flex flex-col md:flex-row justify-between items-center text-gray-400 text-sm">
+                <div className="border-t border-gray-800 pt-6 flex flex-col md:flex-row justify-between items-center text-center md:text-left gap-2 md:gap-0 text-gray-400 text-sm">
           <p>&copy; {new Date().getFullYear()} Mannaplus Group of Schools. All rights reserved.</p>
           <p>Nursery • Primary • College — Sango Ota, Ogun State</p>
         </div>

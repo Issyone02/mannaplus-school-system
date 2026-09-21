@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Plus, Search, DollarSign, FileText, Download, Eye, Edit, Trash2, X, CheckCircle } from 'lucide-react'
+import { Plus, Search, DollarSign, FileText, Download, Eye, Edit, Trash2, X, CheckCircle, TrendingUp, TrendingDown } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
 
 interface FeeStructure {
@@ -468,18 +468,36 @@ export default function FeeManagementPage() {
     <div className="p-4 md:p-8 bg-gray-50 min-h-screen">
       <Toaster position="top-right" />
       
-      <div className="flex justify-between items-center mb-6">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-3 md:gap-0 mb-6 text-center md:text-left">
         <div><h1 className="text-3xl font-bold text-gray-900">Fee Management</h1><p className="text-gray-700">Manage fees and payments</p></div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap justify-center">
           <button onClick={() => { setModalType('structure'); setEditingItem(null); setShowModal(true) }} className="bg-blue-600 text-white px-4 py-2 rounded font-bold flex items-center gap-2 hover:bg-blue-700"><Plus size={18}/>Add Structure</button>
           <button onClick={() => { setModalType('payment'); setEditingItem(null); setShowModal(true) }} className="bg-green-600 text-white px-4 py-2 rounded font-bold flex items-center gap-2 hover:bg-green-700"><DollarSign size={18}/>Record Payment</button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white p-4 rounded shadow"><p className="text-sm text-gray-600 font-medium">Collected</p><p className="text-2xl font-bold text-green-600">₦{totalCollected.toLocaleString()}</p></div>
-        <div className="bg-white p-4 rounded shadow"><p className="text-sm text-gray-600 font-medium">Structures</p><p className="text-2xl font-bold text-blue-600">₦{totalStructures.toLocaleString()}</p></div>
-        <div className="bg-white p-4 rounded shadow"><p className="text-sm text-gray-600 font-medium">Pending</p><p className="text-2xl font-bold text-orange-600">₦{Math.max(0, totalStructures - totalCollected).toLocaleString()}</p></div>
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6 mb-6">
+        <div className="center-mobile bg-white rounded-xl shadow-md p-4 md:p-6 border border-gray-200">
+          <div className="flex items-center justify-center mb-3 md:mb-4">
+            <div className="p-2 md:p-3 rounded-lg bg-green-500"><TrendingUp className="text-white" size={24} /></div>
+          </div>
+          <h3 className="text-lg md:text-2xl font-bold text-green-600 break-words">₦{totalCollected.toLocaleString()}</h3>
+          <p className="text-gray-600 text-xs md:text-sm font-medium text-center">Collected</p>
+        </div>
+        <div className="center-mobile bg-white rounded-xl shadow-md p-4 md:p-6 border border-gray-200">
+          <div className="flex items-center justify-center mb-3 md:mb-4">
+            <div className="p-2 md:p-3 rounded-lg bg-blue-500"><FileText className="text-white" size={24} /></div>
+          </div>
+          <h3 className="text-lg md:text-2xl font-bold text-blue-600 break-words">₦{totalStructures.toLocaleString()}</h3>
+          <p className="text-gray-600 text-xs md:text-sm font-medium text-center">Structures</p>
+        </div>
+        <div className="center-mobile bg-white rounded-xl shadow-md p-4 md:p-6 border border-gray-200">
+          <div className="flex items-center justify-center mb-3 md:mb-4">
+            <div className="p-2 md:p-3 rounded-lg bg-orange-500"><TrendingDown className="text-white" size={24} /></div>
+          </div>
+          <h3 className="text-lg md:text-2xl font-bold text-orange-600 break-words">₦{Math.max(0, totalStructures - totalCollected).toLocaleString()}</h3>
+          <p className="text-gray-600 text-xs md:text-sm font-medium text-center">Pending</p>
+        </div>
       </div>
 
       <div className="bg-white rounded shadow">
@@ -524,22 +542,22 @@ export default function FeeManagementPage() {
                     <p className="text-sm">Use "Add Structure" to create a fee for one or many classes at once.</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-5">
                     {classCards.map(card => (
-                      <div key={card.classId} className="bg-white border border-gray-200 rounded-lg shadow p-4">
-                        <div className="flex justify-between items-center mb-3">
-                          <h3 className="font-bold text-gray-900">{card.className}</h3>
-                          <span className="text-xs bg-green-100 text-green-800 font-bold px-2 py-1 rounded-full">{card.items.length} fee(s)</span>
+                                            <div key={card.classId} className="bg-white border border-gray-200 rounded-lg shadow p-3 md:p-4">
+                                                <div className="flex justify-between items-center gap-2 mb-3 flex-wrap">
+                          <h3 className="font-bold text-gray-900 text-sm md:text-base break-words">{card.className}</h3>
+                          <span className="text-xs bg-green-100 text-green-800 font-bold px-2 py-1 rounded-full whitespace-nowrap">{card.items.length} fee(s)</span>
                         </div>
                         <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                           {card.items.map(f => (
-                            <div key={f.id} className="flex justify-between items-center bg-gray-50 border border-gray-100 rounded p-2">
+                              <div key={f.id} className="flex flex-col md:flex-row justify-between items-start md:items-center gap-1 md:gap-0 bg-gray-50 border border-gray-100 rounded p-2">
                               <div>
-                                <p className="text-sm font-medium text-gray-900">{f.name}</p>
+                                <p className="text-xs md:text-sm font-medium text-gray-900 break-words">{f.name}</p>
                                 <p className="text-xs text-gray-500">{f.term} • {f.session}</p>
                               </div>
                               <div className="flex items-center gap-2">
-                                <span className="text-sm font-bold text-gray-900">₦{f.amount.toLocaleString()}</span>
+                                <span className="text-xs md:text-sm font-bold text-gray-900">₦{f.amount.toLocaleString()}</span>
                                 <button onClick={() => { setEditingItem(f); setStructureForm({ name: f.name, class_ids: [f.class_id], term: f.term, session: f.session, amount: f.amount.toString(), description: f.description || '', due_date: f.due_date || '', active: f.active }); setModalType('structure'); setShowModal(true) }} className="text-blue-600 hover:text-blue-800">
                                   <Edit size={14}/>
                                 </button>
@@ -550,9 +568,9 @@ export default function FeeManagementPage() {
                             </div>
                           ))}
                         </div>
-                        <div className="mt-3 pt-3 border-t border-gray-200 flex justify-between items-center">
-                          <span className="text-sm font-bold text-gray-700">Total Listed</span>
-                          <span className="text-lg font-bold text-green-700">₦{card.total.toLocaleString()}</span>
+                          <div className="mt-3 pt-3 border-t border-gray-200 flex justify-between items-center gap-2">
+                          <span className="text-xs md:text-sm font-bold text-gray-700">Total Listed</span>
+                          <span className="text-sm md:text-lg font-bold text-green-700 break-words">₦{card.total.toLocaleString()}</span>
                         </div>
                       </div>
                     ))}
@@ -658,22 +676,22 @@ export default function FeeManagementPage() {
 
           {activeTab === 'requests' && (
             <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-                  <p className="text-sm text-yellow-700 font-medium">Pending</p>
-                  <p className="text-2xl font-bold text-yellow-900">{paymentRequests.filter(r => r.status === 'pending').length}</p>
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 mb-6">
+                <div className="center-mobile bg-yellow-50 rounded-xl shadow-md p-4 md:p-6 border-2 border-yellow-200">
+                  <h3 className="text-xl md:text-2xl font-bold text-yellow-900">{paymentRequests.filter(r => r.status === 'pending').length}</h3>
+                  <p className="text-yellow-700 text-xs md:text-sm font-medium text-center">Pending</p>
                 </div>
-                <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                  <p className="text-sm text-green-700 font-medium">Approved</p>
-                  <p className="text-2xl font-bold text-green-900">{paymentRequests.filter(r => r.status === 'approved').length}</p>
+                <div className="center-mobile bg-green-50 rounded-xl shadow-md p-4 md:p-6 border-2 border-green-200">
+                  <h3 className="text-xl md:text-2xl font-bold text-green-900">{paymentRequests.filter(r => r.status === 'approved').length}</h3>
+                  <p className="text-green-700 text-xs md:text-sm font-medium text-center">Approved</p>
                 </div>
-                <div className="bg-red-50 p-4 rounded-lg border border-red-200">
-                  <p className="text-sm text-red-700 font-medium">Rejected</p>
-                  <p className="text-2xl font-bold text-red-900">{paymentRequests.filter(r => r.status === 'rejected').length}</p>
+                <div className="center-mobile bg-red-50 rounded-xl shadow-md p-4 md:p-6 border-2 border-red-200">
+                  <h3 className="text-xl md:text-2xl font-bold text-red-900">{paymentRequests.filter(r => r.status === 'rejected').length}</h3>
+                  <p className="text-red-700 text-xs md:text-sm font-medium text-center">Rejected</p>
                 </div>
-                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                  <p className="text-sm text-blue-700 font-medium">Total Amount</p>
-                  <p className="text-2xl font-bold text-blue-900">₦{paymentRequests.filter(r => r.status === 'approved').reduce((sum, r) => sum + r.amount, 0).toLocaleString()}</p>
+                <div className="center-mobile bg-blue-50 rounded-xl shadow-md p-4 md:p-6 border-2 border-blue-200">
+                  <h3 className="text-lg md:text-2xl font-bold text-blue-900 break-words">₦{paymentRequests.filter(r => r.status === 'approved').reduce((sum, r) => sum + r.amount, 0).toLocaleString()}</h3>
+                  <p className="text-blue-700 text-xs md:text-sm font-medium text-center">Total Amount</p>
                 </div>
               </div>
 

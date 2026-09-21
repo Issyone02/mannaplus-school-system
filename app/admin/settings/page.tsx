@@ -44,22 +44,22 @@ export default function SchoolSettingsPage() {
   return (
     <div className="p-4 md:p-8 bg-gray-50 min-h-screen">
       <Toaster position="top-right" />
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2"><Settings size={28} /> School Settings</h1>
+            <div className="mb-6 text-center md:text-left">
+        <h1 className="text-3xl font-bold text-gray-900 flex items-center justify-center md:justify-start gap-2"><Settings size={28} /> School Settings</h1>
         <p className="text-gray-700">Manage the official stamp and head teacher's signature used on all report cards.</p>
       </div>
 
-      <div className="max-w-3xl space-y-6">
+      <div className="max-w-3xl mx-auto space-y-6">
         {/* Head Teacher Signature */}
         <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
-          <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2"><User size={18} /> Head Teacher's Signature</h3>
-          <div className="flex gap-3 mb-4 flex-wrap">
+          <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2"><User size={18} /> Head Teacher's Name</h3>
+                    <div className="flex gap-3 mb-4 flex-wrap justify-center md:justify-start">
             <input
               type="text"
               value={principalName}
               onChange={(e) => setPrincipalName(e.target.value)}
               placeholder="Current Head Teacher's name (e.g. Mrs. A. Bello)"
-              className="flex-1 min-w-[250px] p-2 border rounded text-gray-900"
+              className="w-full md:w-auto md:flex-1 p-2 border rounded text-gray-900"
             />
             <button
               onClick={() => { if (principalSig) saveAsset('principal_signature', principalSig, principalName); else toast.error('Upload the signature first'); }}
@@ -74,7 +74,7 @@ export default function SchoolSettingsPage() {
             storagePath="assets/principal_signature"
             onSaved={(url) => { setPrincipalSig(url); saveAsset('principal_signature', url, principalName); }}
           />
-          {principalName && <p className="text-xs text-gray-500 mt-2">Current holder: <strong>{principalName}</strong>. When a new head teacher takes over, upload their signature and update the name — all new report cards will use it automatically.</p>}
+                    {principalName && <p className="text-xs text-gray-500 mt-2 text-center md:text-left">Current holder: <strong>{principalName}</strong>. When a new head teacher takes over, upload their signature and update the name — all new report cards will use it automatically.</p>}
         </div>
 
         {/* School Stamp */}

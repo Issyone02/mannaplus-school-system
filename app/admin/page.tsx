@@ -77,41 +77,41 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="p-4 md:p-8 bg-gray-50 min-h-screen">
-      <div className="mb-6">
+            <div className="mb-6 text-center md:text-left">
         <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
         <p className="text-gray-600 mt-1">Welcome back! Here's what's happening today.</p>
       </div>
 
       {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 mb-8">
         {overviewCards.map((card, index) => (
-          <div key={index} className="bg-white rounded-xl shadow-md p-6 border border-gray-200">
-            <div className="flex items-center justify-between mb-4">
-              <div className={`p-3 rounded-lg ${card.color}`}>
+                              <div key={index} className="center-mobile bg-white rounded-xl shadow-md p-4 md:p-6 border border-gray-200">
+            <div className="flex items-center justify-between w-full gap-2 mb-3 md:mb-4">
+              <div className={`p-2 md:p-3 rounded-lg ${card.color}`}>
                 <card.icon className="text-white" size={24} />
               </div>
-              <span className={`text-sm font-bold ${card.trendUp ? 'text-green-600' : 'text-red-600'}`}>
+              <span className={`text-xs md:text-sm font-bold ${card.trendUp ? 'text-green-600' : 'text-red-600'}`}>
                 {card.trend}
               </span>
             </div>
-            <h3 className="text-2xl font-bold text-gray-900">{card.value}</h3>
-            <p className="text-gray-600 text-sm">{card.title}</p>
+            <h3 className="text-xl md:text-2xl font-bold text-gray-900">{card.value}</h3>
+            <p className="text-gray-600 text-xs md:text-sm text-center">{card.title}</p>
           </div>
         ))}
       </div>
 
       {/* Finance Cards */}
       <div className="mb-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Financial Overview</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <h2 className="text-2xl font-bold text-gray-900 mb-4 text-center md:text-left">Financial Overview</h2>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
           {financeCards.map((card, index) => (
-            <div key={index} className={`${card.bgColor} rounded-xl shadow-md p-6 border-2 ${card.borderColor}`}>
-              <div className="flex items-center justify-between mb-4">
+                                    <div key={index} className={`center-mobile ${card.bgColor} rounded-xl shadow-md p-4 md:p-6 border-2 ${card.borderColor}`}>
+              <div className="flex items-center justify-center mb-3 md:mb-4">
                 <card.icon className={card.color} size={24} />
               </div>
-              <h3 className="text-2xl font-bold text-gray-900">{card.value}</h3>
-              <p className="text-gray-700 text-sm font-medium">{card.title}</p>
-              {card.subtitle && <p className="text-gray-600 text-xs mt-1">{card.subtitle}</p>}
+              <h3 className="text-lg md:text-2xl font-bold text-gray-900 break-words">{card.value}</h3>
+              <p className="text-gray-700 text-xs md:text-sm font-medium text-center">{card.title}</p>
+              {card.subtitle && <p className="text-gray-600 text-xs mt-1 text-center">{card.subtitle}</p>}
             </div>
           ))}
         </div>
@@ -119,39 +119,39 @@ export default function AdminDashboardPage() {
 
       {/* Quick Actions */}
       <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h2>
+                <h2 className="text-xl font-bold text-gray-900 mb-4 text-center md:text-left">Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <button 
             onClick={() => router.push('/admin/students')}
-            className="p-4 bg-blue-50 hover:bg-blue-100 rounded-lg border-2 border-blue-200 transition-colors text-left"
+                        className="center-mobile p-4 bg-blue-50 hover:bg-blue-100 rounded-lg border-2 border-blue-200 transition-colors text-center md:text-left"
           >
             <div className="flex items-center gap-3 mb-2">
               <Plus className="text-blue-600" size={24} />
               <h3 className="font-bold text-blue-900 text-lg">Add Student</h3>
             </div>
-            <p className="text-sm text-blue-700 ml-12">Register new student</p>
+                        <p className="text-sm text-blue-700 ml-0 md:ml-12">Register new student</p>
           </button>
           
           <button 
             onClick={() => router.push('/admin/fees')}
-            className="p-4 bg-green-50 hover:bg-green-100 rounded-lg border-2 border-green-200 transition-colors text-left"
+                        className="center-mobile p-4 bg-green-50 hover:bg-green-100 rounded-lg border-2 border-green-200 transition-colors text-center md:text-left"
           >
             <div className="flex items-center gap-3 mb-2">
               <DollarSign className="text-green-600" size={24} />
               <h3 className="font-bold text-green-900 text-lg">Record Payment</h3>
             </div>
-            <p className="text-sm text-green-700 ml-12">Manual payment entry</p>
+                        <p className="text-sm text-green-700 ml-0 md:ml-12">Manual payment entry</p>
           </button>
           
           <button 
             onClick={() => router.push('/admin/fees')}
-            className="p-4 bg-purple-50 hover:bg-purple-100 rounded-lg border-2 border-purple-200 transition-colors text-left relative"
+                        className="center-mobile p-4 bg-purple-50 hover:bg-purple-100 rounded-lg border-2 border-purple-200 transition-colors text-center md:text-left relative"
           >
             <div className="flex items-center gap-3 mb-2">
               <FileText className="text-purple-600" size={24} />
               <h3 className="font-bold text-purple-900 text-lg">View Requests</h3>
             </div>
-            <p className="text-sm text-purple-700 ml-12">{stats.pendingRequests} pending approval{stats.pendingRequests !== 1 ? 's' : ''}</p>
+                        <p className="text-sm text-purple-700 ml-0 md:ml-12">{stats.pendingRequests} pending approval{stats.pendingRequests !== 1 ? 's' : ''}</p>
             {stats.pendingRequests > 0 && (
               <span className="absolute top-4 right-4 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
                 {stats.pendingRequests}
