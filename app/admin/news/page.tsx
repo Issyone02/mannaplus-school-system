@@ -219,24 +219,33 @@ export default function AdminNewsPage() {
     <div className="p-4 md:p-8 bg-gray-50 min-h-screen">
       <Toaster position="top-right" />
 
-      <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-center gap-3 md:gap-0 mb-6 text-center md:text-left">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2"><Newspaper size={28} className="text-green-600" /> News & Events Manager</h1>
+          <h1 className="text-3xl font-bold text-gray-900 flex items-center justify-center md:justify-start gap-2"><Newspaper size={28} className="text-green-600" /> News & Events Manager</h1>
           <p className="text-gray-700">Publish school highlights: excursions, competitions, parties & more.</p>
         </div>
-        <button onClick={() => { setEditingId(null); setForm(emptyForm); setShowForm(true) }} className="flex items-center gap-2 bg-green-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-green-700">
+        <button onClick={() => { setEditingId(null); setForm(emptyForm); setShowForm(true) }} className="flex items-center justify-center gap-2 bg-green-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-green-700 w-full md:w-auto">
           <Plus size={18} /> New Article
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white p-4 rounded-lg shadow"><p className="text-sm text-gray-600">Total Articles</p><p className="text-2xl font-bold text-gray-900">{articles.length}</p></div>
-        <div className="bg-green-50 p-4 rounded-lg shadow border border-green-200"><p className="text-sm text-green-700">Published</p><p className="text-2xl font-bold text-green-900">{articles.filter(a => a.is_published).length}</p></div>
-        <div className="bg-yellow-50 p-4 rounded-lg shadow border border-yellow-200"><p className="text-sm text-yellow-700">Drafts</p><p className="text-2xl font-bold text-yellow-900">{articles.filter(a => !a.is_published).length}</p></div>
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 mb-6">
+        <div className="center-mobile bg-white rounded-xl shadow-md p-4 md:p-6 border border-gray-200">
+          <h3 className="text-xl md:text-2xl font-bold text-gray-900">{articles.length}</h3>
+          <p className="text-gray-600 text-xs md:text-sm font-medium text-center">Total Articles</p>
+        </div>
+        <div className="center-mobile bg-green-50 rounded-xl shadow-md p-4 md:p-6 border border-green-200">
+          <h3 className="text-xl md:text-2xl font-bold text-green-900">{articles.filter(a => a.is_published).length}</h3>
+          <p className="text-green-700 text-xs md:text-sm font-medium text-center">Published</p>
+        </div>
+        <div className="center-mobile bg-yellow-50 rounded-xl shadow-md p-4 md:p-6 border border-yellow-200">
+          <h3 className="text-xl md:text-2xl font-bold text-yellow-900">{articles.filter(a => !a.is_published).length}</h3>
+          <p className="text-yellow-700 text-xs md:text-sm font-medium text-center">Drafts</p>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow p-4 mb-6">
-        <div className="relative max-w-md">
+        <div className="relative md:max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
           <input type="text" placeholder="Search articles..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border rounded text-gray-900" />
         </div>
@@ -315,7 +324,7 @@ export default function AdminNewsPage() {
               </div>
               <div>
                 <label className="block text-sm font-bold text-gray-900 mb-1">Cover Image</label>
-                <div className="flex items-center gap-4 flex-wrap">
+                <div className="flex items-center gap-4 flex-wrap justify-center md:justify-start">
                   {form.image_url ? (
                     <img src={form.image_url} alt="Cover preview" className="h-24 w-36 object-cover rounded-lg border border-gray-200" />
                   ) : (
@@ -333,7 +342,7 @@ export default function AdminNewsPage() {
               </div>
               <div>
                 <label className="block text-sm font-bold text-gray-900 mb-1">Event Gallery (multiple photos)</label>
-                <div className="flex items-center gap-4 flex-wrap mb-3">
+                <div className="flex items-center gap-4 flex-wrap mb-3 justify-center md:justify-start">
                   <label className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded font-bold hover:bg-purple-700 cursor-pointer">
                     {uploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
                     Add Photos
@@ -364,8 +373,8 @@ export default function AdminNewsPage() {
                 <input id="publish_now" type="checkbox" checked={form.is_published} onChange={(e) => setForm({ ...form, is_published: e.target.checked })} className="w-4 h-4" />
                 <label htmlFor="publish_now" className="text-gray-900 font-medium">Publish immediately (visible on the website & portals)</label>
               </div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowForm(false)} className="px-5 py-2 border rounded font-bold text-gray-700 hover:bg-gray-50">Cancel</button>
+              <div className="flex flex-col-reverse md:flex-row gap-3 pt-2">
+                <button type="button" onClick={() => setShowForm(false)} className="px-5 py-2 border rounded font-bold text-gray-700 hover:bg-gray-50 w-full md:w-auto">Cancel</button>
                 <button type="submit" disabled={saving || uploading} className="flex-1 bg-green-600 text-white py-2 rounded font-bold hover:bg-green-700 disabled:opacity-50">
                   {saving ? 'Saving...' : editingId ? 'Update Article' : 'Create Article'}
                 </button>
