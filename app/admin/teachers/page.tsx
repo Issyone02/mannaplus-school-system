@@ -320,7 +320,7 @@ export default function TeachersPage() {
     <div className="p-4 md:p-8 bg-gray-50 min-h-screen">
       <Toaster position="top-right" />
       
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col md:flex-row justify-between items-center gap-3 md:gap-0 mb-6 text-center md:text-left">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Teacher Management</h1>
           <p className="text-gray-600 mt-1 font-medium">{teachers.length} teachers • {teachers.filter(t => t.active).length} active</p>
@@ -344,7 +344,7 @@ export default function TeachersPage() {
             }); 
             setShowModal(true); 
           }}
-          className="flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-bold"
+          className="flex items-center justify-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-bold w-full md:w-auto"
         >
           <Plus size={20} />
           <span>Add Teacher</span>
@@ -352,7 +352,7 @@ export default function TeachersPage() {
       </div>
 
       <div className="bg-white rounded-xl shadow-md p-4 border border-gray-200 mb-6">
-        <div className="relative max-w-md">
+        <div className="relative md:max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
           <input
             type="text"
@@ -374,15 +374,15 @@ export default function TeachersPage() {
         ) : (
           filteredTeachers.map((teacher) => (
             <div key={teacher.id} className="bg-white rounded-xl shadow-md border border-gray-200 hover:shadow-lg transition-shadow">
-              <div className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center">
-                      <span className="text-blue-700 font-bold text-xl">{teacher.full_name.charAt(0)}</span>
+              <div className="p-4 md:p-6">
+                <div className="flex items-start justify-between gap-2 mb-4 flex-wrap">
+                  <div className="flex items-center space-x-3 min-w-0">
+                    <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                      <span className="text-blue-700 font-bold text-lg md:text-xl">{teacher.full_name.charAt(0)}</span>
                     </div>
-                    <div>
-                      <h3 className="font-bold text-gray-900 text-lg">{teacher.full_name}</h3>
-                      <p className="text-sm text-gray-600">{teacher.staff_id}</p>
+                    <div className="min-w-0">
+                      <h3 className="font-bold text-gray-900 text-base md:text-lg break-words">{teacher.full_name}</h3>
+                      <p className="text-xs md:text-sm text-gray-600">{teacher.staff_id}</p>
                     </div>
                   </div>
                   <button
@@ -436,16 +436,16 @@ export default function TeachersPage() {
                   </div>
                 )}
 
-                <div className="pt-4 border-t border-gray-200 flex justify-between items-center">
+                <div className="pt-3 md:pt-4 border-t border-gray-200 flex flex-wrap justify-between items-center gap-2">
                   <span className="text-xs text-gray-500">Joined: {new Date(teacher.joined_date).toLocaleDateString()}</span>
-                  <div className="flex space-x-2">
-                    <button onClick={() => setSigTeacher(teacher)} className="p-2 text-purple-600 hover:bg-purple-50 rounded font-bold" title="Upload Signature">
+                  <div className="flex space-x-1 md:space-x-2">
+                    <button onClick={() => setSigTeacher(teacher)} className="p-1.5 md:p-2 text-purple-600 hover:bg-purple-50 rounded font-bold" title="Upload Signature">
                       <PenLine size={18} />
                     </button>
-                    <button onClick={() => handleEdit(teacher)} className="p-2 text-blue-600 hover:bg-blue-50 rounded font-bold" title="Edit">
+                    <button onClick={() => handleEdit(teacher)} className="p-1.5 md:p-2 text-blue-600 hover:bg-blue-50 rounded font-bold" title="Edit">
                       <Edit size={18} />
                     </button>
-                    <button onClick={() => handleDelete(teacher.id)} className="p-2 text-red-600 hover:bg-red-50 rounded font-bold" title="Delete">
+                    <button onClick={() => handleDelete(teacher.id)} className="p-1.5 md:p-2 text-red-600 hover:bg-red-50 rounded font-bold" title="Delete">
                       <Trash2 size={18} />
                     </button>
                   </div>
@@ -538,9 +538,9 @@ export default function TeachersPage() {
                 </select>
               </div>
 
-              <div className="flex justify-end space-x-3 pt-4 border-t-2 border-gray-200">
-                <button type="button" onClick={() => setShowModal(false)} className="px-6 py-3 border-2 border-gray-300 rounded-lg hover:bg-gray-50 font-bold text-gray-900">Cancel</button>
-                <button type="submit" className="flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-bold"><Save size={18} /><span>{editingTeacher ? 'Update' : 'Add'} Teacher</span></button>
+              <div className="flex flex-col-reverse md:flex-row justify-end gap-3 md:space-x-3 pt-4 border-t-2 border-gray-200">
+                <button type="button" onClick={() => setShowModal(false)} className="px-6 py-3 border-2 border-gray-300 rounded-lg hover:bg-gray-50 font-bold text-gray-900 w-full md:w-auto">Cancel</button>
+                <button type="submit" className="flex items-center justify-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-bold w-full md:w-auto"><Save size={18} /><span>{editingTeacher ? 'Update' : 'Add'} Teacher</span></button>
               </div>
             </form>
           </div>
