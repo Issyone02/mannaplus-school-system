@@ -236,50 +236,38 @@ export default function ClassesPage() {
       <Toaster position="top-right" />
       
       <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-6">
+                <div className="max-w-7xl mx-auto px-4 py-6 text-center md:text-left">
           <h1 className="text-2xl font-bold text-gray-900">📚 Classes Management</h1>
           <p className="text-gray-600 mt-1">Manage all classes, departments, and class teachers</p>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 font-medium">Total Classes</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">{classes.length}</p>
-              </div>
-              <div className="bg-blue-100 p-3 rounded-full">
-                <BookOpen size={24} className="text-blue-600" />
-              </div>
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6 mb-8">
+          <div className="center-mobile bg-white rounded-xl shadow-md p-4 md:p-6 border border-gray-200">
+            <div className="flex items-center justify-center mb-3 md:mb-4">
+              <div className="p-2 md:p-3 rounded-lg bg-blue-500"><BookOpen className="text-white" size={24} /></div>
             </div>
+            <h3 className="text-xl md:text-3xl font-bold text-gray-900">{classes.length}</h3>
+            <p className="text-gray-600 text-xs md:text-sm font-medium text-center">Total Classes</p>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 font-medium">Total Students</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">{totalStudents}</p>
-              </div>
-              <div className="bg-green-100 p-3 rounded-full">
-                <Users size={24} className="text-green-600" />
-              </div>
+          <div className="center-mobile bg-white rounded-xl shadow-md p-4 md:p-6 border border-gray-200">
+            <div className="flex items-center justify-center mb-3 md:mb-4">
+              <div className="p-2 md:p-3 rounded-lg bg-green-500"><Users className="text-white" size={24} /></div>
             </div>
+            <h3 className="text-xl md:text-3xl font-bold text-gray-900">{totalStudents}</h3>
+            <p className="text-gray-600 text-xs md:text-sm font-medium text-center">Total Students</p>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 font-medium">Assigned Teachers</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">
-                  {new Set(classes.map(c => c.teacher_id).filter(id => id)).size}
-                </p>
-              </div>
-              <div className="bg-purple-100 p-3 rounded-full">
-                <UserCheck size={24} className="text-purple-600" />
-              </div>
+          <div className="center-mobile bg-white rounded-xl shadow-md p-4 md:p-6 border border-gray-200">
+            <div className="flex items-center justify-center mb-3 md:mb-4">
+              <div className="p-2 md:p-3 rounded-lg bg-purple-500"><UserCheck className="text-white" size={24} /></div>
             </div>
+            <h3 className="text-xl md:text-3xl font-bold text-gray-900">
+              {new Set(classes.map(c => c.teacher_id).filter(id => id)).size}
+            </h3>
+            <p className="text-gray-600 text-xs md:text-sm font-medium text-center">Assigned Teachers</p>
           </div>
         </div>
 
@@ -334,23 +322,23 @@ export default function ClassesPage() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
             {filteredClasses.map((cls) => (
               <div key={cls.id} className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow border border-gray-100">
-                <div className="p-6">
-                  <div className="flex justify-between items-start mb-4">
+                <div className="p-3 md:p-6">
+                  <div className="flex justify-between items-start gap-1 md:gap-0 mb-3 md:mb-4 flex-wrap">
                     <div>
-                      <h3 className="text-xl font-bold text-gray-900">
+                      <h3 className="text-base md:text-xl font-bold text-gray-900 break-words">
                         {cls.class_name || 'Unnamed'} {cls.arm && `(${cls.arm})`}
                       </h3>
-                      {cls.department && (
-                        <p className="text-sm font-medium text-blue-600 mt-1 flex items-center">
+                                            {cls.department && (
+                        <p className="text-xs md:text-sm font-medium text-blue-600 mt-1 flex items-center flex-wrap">
                           {getDepartmentIcon(cls.department)} {cls.department} Department
                         </p>
                       )}
                       <p className="text-xs text-gray-500 mt-1">{cls.academic_session}</p>
                     </div>
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                    <span className={`px-2 md:px-3 py-1 rounded-full text-[10px] md:text-xs font-bold whitespace-nowrap ${
                       cls.class_level === 'Primary' ? 'bg-green-100 text-green-800' :
                       cls.class_level === 'JSS' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
                     }`}>
@@ -358,18 +346,18 @@ export default function ClassesPage() {
                     </span>
                   </div>
 
-                  <div className="space-y-2 mb-4">
-                    <div className="flex items-center gap-2 text-sm text-gray-700">
-                      <UserCheck size={16} className="text-gray-500" />
-                      <span>{cls.teacher_name || 'No teacher assigned'}</span>
+                    <div className="space-y-1 md:space-y-2 mb-3 md:mb-4">
+                    <div className="flex items-center gap-1 md:gap-2 text-xs md:text-sm text-gray-700">
+                      <UserCheck size={16} className="text-gray-500 flex-shrink-0" />
+                      <span className="break-words">{cls.teacher_name || 'No teacher assigned'}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-700">
-                      <Users size={16} className="text-gray-500" />
+                    <div className="flex items-center gap-1 md:gap-2 text-xs md:text-sm text-gray-700">
+                      <Users size={16} className="text-gray-500 flex-shrink-0" />
                       <span>{cls.student_count || 0} / {cls.max_students} students</span>
                     </div>
                   </div>
 
-                  <div className="mb-4">
+                  <div className="mb-3 md:mb-4">
                     <div className="flex justify-between text-xs text-gray-600 mb-1">
                       <span>Capacity</span>
                       <span>{Math.round(((cls.student_count || 0) / cls.max_students) * 100)}%</span>
@@ -384,10 +372,10 @@ export default function ClassesPage() {
                     </div>
                   </div>
 
-                  <div className="flex gap-2 pt-4 border-t border-gray-200">
+                                    <div className="flex gap-1 md:gap-2 pt-3 md:pt-4 border-t border-gray-200">
                     <button
                       onClick={() => handleEdit(cls)}
-                      className="flex-1 flex items-center justify-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg font-bold hover:bg-blue-100 transition-colors"
+                      className="flex-1 flex items-center justify-center gap-1 md:gap-2 bg-blue-50 text-blue-600 px-1 md:px-4 py-2 rounded-lg font-bold text-xs md:text-sm hover:bg-blue-100 transition-colors"
                     >
                       <Edit size={16} />
                       Edit
@@ -395,7 +383,7 @@ export default function ClassesPage() {
                     <button
                       onClick={() => handleDelete(cls.id)}
                       disabled={deletingClass === cls.id || (cls.student_count || 0) > 0}
-                      className="flex-1 flex items-center justify-center gap-2 bg-red-50 text-red-600 px-4 py-2 rounded-lg font-bold hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 flex items-center justify-center gap-1 md:gap-2 bg-red-50 text-red-600 px-1 md:px-4 py-2 rounded-lg font-bold text-xs md:text-sm hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       title={(cls.student_count || 0) > 0 ? "Cannot delete a class with students" : "Delete"}
                     >
                       <Trash2 size={16} />
