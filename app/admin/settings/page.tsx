@@ -51,8 +51,8 @@ export default function SchoolSettingsPage() {
 
       <div className="max-w-3xl mx-auto space-y-6">
         {/* Head Teacher Signature */}
-        <div className="bg-white rounded-lg shadow p-6 border border-gray-200">
-          <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2"><User size={18} /> Head Teacher's Name</h3>
+        <div className="bg-white rounded-lg shadow p-4 md:p-6 border border-gray-200">
+          <h3 className="font-bold text-gray-900 mb-4 flex items-center justify-center md:justify-start gap-2"><User size={18} /> Head Teacher's Name</h3>
                     <div className="flex gap-3 mb-4 flex-wrap justify-center md:justify-start">
             <input
               type="text"
@@ -63,7 +63,7 @@ export default function SchoolSettingsPage() {
             />
             <button
               onClick={() => { if (principalSig) saveAsset('principal_signature', principalSig, principalName); else toast.error('Upload the signature first'); }}
-              className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded font-bold hover:bg-green-700"
+              className="flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2 rounded font-bold hover:bg-green-700 w-full md:w-auto"
             >
               <Save size={16} /> Update Name
             </button>
