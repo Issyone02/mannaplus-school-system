@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Plus, Search, FileText, Download, Printer, Edit, Trash2, X, Upload, ClipboardList, RefreshCw } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
@@ -555,12 +555,12 @@ export default function ResultsPage() {
   return (
     <div className="p-4 md:p-8 bg-gray-50 min-h-screen">
       <Toaster position="top-right" />
-      <div className="flex justify-between items-center mb-6">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-3 md:gap-0 mb-6 text-center md:text-left">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Results Management</h1>
           <p className="text-gray-700">Bulk entry for thousands of students</p>
         </div>
-        <div className="flex gap-3 flex-wrap">
+        <div className="flex gap-3 flex-wrap justify-center">
           <button onClick={() => syncAllSubjectsToStudents()} className="bg-purple-600 text-white px-4 py-2 rounded font-bold flex items-center gap-2 hover:bg-purple-700"><RefreshCw size={18}/>Sync Subjects to Students</button>
           <button onClick={() => { setModalType('result'); setEditingItem(null); setResultForm({ student_id: '', subject_id: '', ca_score: '', exam_score: '' }); setShowModal(true) }} className="bg-green-600 text-white px-4 py-2 rounded font-bold flex items-center gap-2 hover:bg-green-700"><FileText size={18}/>Single Entry</button>
           <button onClick={() => { setModalType('subject'); setEditingItem(null); setShowModal(true) }} className="bg-blue-600 text-white px-4 py-2 rounded font-bold flex items-center gap-2 hover:bg-blue-700"><Plus size={18}/>Add Subject</button>
@@ -576,15 +576,15 @@ export default function ResultsPage() {
         </div>
 
         <div className="p-4">
-          <div className="flex gap-4 mb-4 flex-wrap">
-            <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} className="p-2 border rounded text-gray-900">
+                    <div className="grid grid-cols-2 md:flex md:flex-row gap-3 md:gap-4 mb-4">
+            <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} className="p-2 border rounded text-gray-900 w-full md:w-auto">
               <option value="">All Classes</option>
               {classes.map(c => <option key={c.id} value={c.id}>{c.class_name} {c.arm ? `(${c.arm})` : ''} {c.department ? `- ${c.department}` : ''}</option>)}
             </select>
-            {uniqueDepartments.length > 0 && <select value={selectedDepartment} onChange={(e) => setSelectedDepartment(e.target.value)} className="p-2 border rounded text-gray-900"><option value="">All Departments</option>{uniqueDepartments.map(dept => <option key={dept} value={dept}>{dept}</option>)}</select>}
-            <select value={selectedTerm} onChange={(e) => setSelectedTerm(e.target.value)} className="p-2 border rounded text-gray-900">{termOptions.map(t => <option key={t} value={t}>{t}</option>)}</select>
-            <select value={selectedSession} onChange={(e) => setSelectedSession(e.target.value)} className="p-2 border rounded text-gray-900">{sessionOptions.map(s => <option key={s} value={s}>{s}</option>)}</select>
-            <input type="text" placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="flex-1 p-2 border rounded text-gray-900" />
+            {uniqueDepartments.length > 0 && <select value={selectedDepartment} onChange={(e) => setSelectedDepartment(e.target.value)} className="p-2 border rounded text-gray-900 w-full md:w-auto"><option value="">All Departments</option>{uniqueDepartments.map(dept => <option key={dept} value={dept}>{dept}</option>)}</select>}
+            <select value={selectedTerm} onChange={(e) => setSelectedTerm(e.target.value)} className="p-2 border rounded text-gray-900 w-full md:w-auto">{termOptions.map(t => <option key={t} value={t}>{t}</option>)}</select>
+            <select value={selectedSession} onChange={(e) => setSelectedSession(e.target.value)} className="p-2 border rounded text-gray-900 w-full md:w-auto">{sessionOptions.map(s => <option key={s} value={s}>{s}</option>)}</select>
+            <input type="text" placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="col-span-2 md:col-span-1 md:flex-1 p-2 border rounded text-gray-900" />
           </div>
 
           {activeTab === 'bulk-results' && (
@@ -602,15 +602,27 @@ export default function ResultsPage() {
 
           {activeTab === 'view' && (
             <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div className="bg-blue-50 p-4 rounded-lg"><p className="text-sm text-blue-600 font-medium">Total Students</p><p className="text-2xl font-bold text-blue-900">{new Set(filteredResults.map(r => r.student_id)).size}</p></div>
-                <div className="bg-green-50 p-4 rounded-lg"><p className="text-sm text-green-600 font-medium">Total Results</p><p className="text-2xl font-bold text-green-900">{filteredResults.length}</p></div>
-                <div className="bg-purple-50 p-4 rounded-lg"><p className="text-sm text-purple-600 font-medium">Avg Score</p><p className="text-2xl font-bold text-purple-900">{filteredResults.length > 0 ? (filteredResults.reduce((sum, r) => sum + r.total_score, 0) / filteredResults.length).toFixed(1) : '0'}</p></div>
-                <div className="bg-orange-50 p-4 rounded-lg"><p className="text-sm text-orange-600 font-medium">Subjects</p><p className="text-2xl font-bold text-orange-900">{new Set(filteredResults.map(r => r.subject_id)).size}</p></div>
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6">
+                <div className="center-mobile bg-blue-50 rounded-xl shadow-md p-4 md:p-6 border-2 border-blue-200">
+                  <h3 className="text-xl md:text-2xl font-bold text-blue-900">{new Set(filteredResults.map(r => r.student_id)).size}</h3>
+                  <p className="text-blue-600 text-xs md:text-sm font-medium text-center">Total Students</p>
+                </div>
+                <div className="center-mobile bg-green-50 rounded-xl shadow-md p-4 md:p-6 border-2 border-green-200">
+                  <h3 className="text-xl md:text-2xl font-bold text-green-900">{filteredResults.length}</h3>
+                  <p className="text-green-600 text-xs md:text-sm font-medium text-center">Total Results</p>
+                </div>
+                <div className="center-mobile bg-purple-50 rounded-xl shadow-md p-4 md:p-6 border-2 border-purple-200">
+                  <h3 className="text-xl md:text-2xl font-bold text-purple-900">{filteredResults.length > 0 ? (filteredResults.reduce((sum, r) => sum + r.total_score, 0) / filteredResults.length).toFixed(1) : '0'}</h3>
+                  <p className="text-purple-600 text-xs md:text-sm font-medium text-center">Avg Score</p>
+                </div>
+                <div className="center-mobile bg-orange-50 rounded-xl shadow-md p-4 md:p-6 border-2 border-orange-200">
+                  <h3 className="text-xl md:text-2xl font-bold text-orange-900">{new Set(filteredResults.map(r => r.subject_id)).size}</h3>
+                  <p className="text-orange-600 text-xs md:text-sm font-medium text-center">Subjects</p>
+                </div>
               </div>
 
-              <div className="bg-white border rounded-lg overflow-hidden">
-                <table className="w-full">
+                <div className="bg-white border rounded-lg overflow-x-auto">
+                <table className="w-full min-w-[900px]">
                   <thead className="bg-gray-50 border-b">
                     <tr>
                       <th className="p-3 text-left text-gray-900 font-bold">Admission No</th>
@@ -628,27 +640,27 @@ export default function ResultsPage() {
                       const average = studentResults.reduce((sum, r) => sum + r.total_score, 0) / (studentResults.length || 1)
                       const isExpanded = expandedStudent === studentId
                       return (
-                        <tr key={studentId}>
-                          <td colSpan={6}>
-                            <div className="border-b hover:bg-gray-50 cursor-pointer transition-colors p-3 grid grid-cols-6 items-center" onClick={() => setExpandedStudent(isExpanded ? null : studentId)}>
-                              <div className="text-gray-900 font-medium">{student?.admission_number}</div>
-                              <div className="text-gray-900">{student?.full_name}</div>
-                              <div className="text-center text-gray-900">{studentResults.length}</div>
-                              <div className="text-center"><span className={`px-2 py-1 rounded font-bold ${average >= 70 ? 'bg-green-100 text-green-800' : average >= 50 ? 'bg-blue-100 text-blue-800' : average >= 40 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>{average.toFixed(1)}</span></div>
-                              <div className="text-center text-gray-900 font-bold">-</div>
-                              <div className="text-center">
-                                <div className="flex justify-center gap-2" onClick={e => e.stopPropagation()}>
+                          <Fragment key={studentId}>
+                          <tr className="border-b hover:bg-gray-50 cursor-pointer transition-colors" onClick={() => setExpandedStudent(isExpanded ? null : studentId)}>
+                            <td className="p-3 text-gray-900 font-medium whitespace-nowrap">{student?.admission_number}</td>
+                            <td className="p-3 text-gray-900">{student?.full_name}</td>
+                            <td className="p-3 text-center text-gray-900">{studentResults.length}</td>
+                            <td className="p-3 text-center"><span className={`px-2 py-1 rounded font-bold ${average >= 70 ? 'bg-green-100 text-green-800' : average >= 50 ? 'bg-blue-100 text-blue-800' : average >= 40 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>{average.toFixed(1)}</span></td>
+                            <td className="p-3 text-center text-gray-900 font-bold">-</td>
+                            <td className="p-3 text-center">
+                              <div className="flex justify-center gap-2" onClick={e => e.stopPropagation()}>
                                   <button onClick={(e) => { e.stopPropagation(); setPrintStudentId(studentId) }} className="text-purple-600 hover:text-purple-800" title="Print Report Card"><Printer size={16}/></button>
                                   <button onClick={(e) => { e.stopPropagation(); setEditReportStudentId(studentId) }} className="text-green-600 hover:text-green-800" title="Edit Report Card Data"><ClipboardList size={16}/></button>
                                   <button onClick={(e) => { e.stopPropagation(); const firstResult = studentResults[0]; if (firstResult) { setEditingItem(firstResult); setResultForm({ student_id: firstResult.student_id, subject_id: firstResult.subject_id, ca_score: firstResult.ca_score.toString(), exam_score: firstResult.exam_score.toString() }); setModalType('result'); setShowModal(true) } }} className="text-blue-600 hover:text-blue-800" title="Edit Result"><Edit size={16}/></button>
                                 </div>
-                              </div>
-                            </div>
-                            {isExpanded && (
-                              <div className="bg-gray-50 p-4 border-t">
+                            </td>
+                          </tr>
+                          {isExpanded && (
+                            <tr>
+                              <td colSpan={6} className="bg-gray-50 p-4 border-t">
                                 <h4 className="font-bold text-gray-900 mb-3">{student?.full_name} - All Subjects ({studentResults.length})</h4>
-                                <div className="overflow-x-auto">
-                                  <table className="w-full text-sm">
+                                  <div className="overflow-x-auto">
+                                  <table className="w-full min-w-[800px] text-sm">
                                     <thead className="bg-gray-100">
                                       <tr>
                                         <th className="p-2 text-left">Subject</th>
@@ -693,18 +705,20 @@ export default function ResultsPage() {
                                       })}
                                     </tbody>
                                   </table>
-                                </div>
                               </div>
-                            )}
-                          </td>
-                        </tr>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
                       )
                     })}
                   </tbody>
                 </table>
-                {filteredResults.length === 0 && <div className="p-8 text-center text-gray-600"><FileText size={48} className="mx-auto text-gray-300 mb-2"/><p className="font-bold">No results found</p></div>}
+                                {filteredResults.length === 0 && <div className="p-8 text-center text-gray-600"><FileText size={48} className="mx-auto text-gray-300 mb-2"/><p className="font-bold">No results found</p></div>}
               </div>
-              {uniqueStudentIds.length > viewLimit && (
+              {filteredResults.length > 0 && (
+                <p className="md:hidden mt-2 text-xs text-gray-500 text-center">← Swipe the table sideways to see Position & Actions →</p>
+              )}              {uniqueStudentIds.length > viewLimit && (
                 <button onClick={() => setViewLimit(v => v + 50)} className="mt-4 w-full bg-blue-600 text-white py-2 rounded font-bold hover:bg-blue-700">
                   Load More ({uniqueStudentIds.length - viewLimit} more students)
                 </button>
@@ -712,9 +726,9 @@ export default function ResultsPage() {
             </div>
           )}
 
-          {activeTab === 'subjects' && (
+                    {activeTab === 'subjects' && (
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full min-w-[900px]">
                 <thead>
                   <tr>
                     <th className="p-2 text-left text-gray-900 font-bold">Name</th>
