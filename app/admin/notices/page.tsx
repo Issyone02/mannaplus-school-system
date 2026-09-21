@@ -194,7 +194,7 @@ export default function NoticesPage() {
       <Toaster position="top-right" />
       
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-3 md:gap-0 mb-6 text-center md:text-left">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Notices & Announcements</h1>
           <p className="text-gray-600">Manage school-wide communications</p>
@@ -208,8 +208,8 @@ export default function NoticesPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow p-4 mb-6 flex flex-wrap gap-4">
-        <div className="flex-1 min-w-[250px]">
+            <div className="bg-white rounded-lg shadow p-4 mb-6 flex flex-col md:flex-row gap-3 md:gap-4">
+        <div className="w-full md:flex-1">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18}/>
             <input 
@@ -221,11 +221,11 @@ export default function NoticesPage() {
             />
           </div>
         </div>
-        <div>
+        <div className="w-full md:w-auto">
           <select 
             value={filterAudience} 
             onChange={(e) => setFilterAudience(e.target.value)}
-            className="p-2 border rounded text-gray-900"
+            className="p-2 border rounded text-gray-900 w-full md:w-auto"
           >
             <option value="all">All Audiences</option>
             {audienceOptions.map(opt => (
@@ -247,20 +247,20 @@ export default function NoticesPage() {
           filteredNotices.map(notice => (
             <div 
               key={notice.id} 
-              className={`bg-white rounded-lg shadow p-6 border-l-4 ${
+                            className={`bg-white rounded-lg shadow p-4 md:p-6 border-l-4 ${
                 notice.is_pinned ? 'border-yellow-500' :
                 notice.is_urgent ? 'border-red-500' :
                 'border-blue-500'
               }`}
             >
-              <div className="flex justify-between items-start mb-3">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-lg font-bold text-gray-900">{notice.title}</h3>
+              <div className="flex flex-wrap justify-between items-start gap-2 mb-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <h3 className="text-base md:text-lg font-bold text-gray-900 break-words">{notice.title}</h3>
                   {notice.is_pinned && <Pin size={16} className="text-yellow-500"/>}
                   {notice.is_urgent && <AlertTriangle size={16} className="text-red-500"/>}
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded">
+                  <div className="flex items-center gap-2 flex-wrap">
+                  <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded whitespace-nowrap">
                     {getAudienceLabel(notice.audience)}
                   </span>
                   {notice.target_class && (
@@ -274,11 +274,11 @@ export default function NoticesPage() {
               
               <p className="text-gray-700 mb-4 whitespace-pre-wrap">{notice.content}</p>
               
-              <div className="flex justify-between items-center">
-                <div className="text-sm text-gray-500">
+                <div className="flex flex-wrap justify-between items-center gap-2">
+                <div className="text-xs md:text-sm text-gray-500">
                   <span>Posted: {new Date(notice.created_at).toLocaleDateString()}</span>
                   {notice.expires_at && (
-                    <span className="ml-4">Expires: {new Date(notice.expires_at).toLocaleDateString()}</span>
+                    <span className="ml-0 md:ml-4 block md:inline">Expires: {new Date(notice.expires_at).toLocaleDateString()}</span>
                   )}
                 </div>
                 <div className="flex gap-2">
@@ -394,7 +394,7 @@ export default function NoticesPage() {
                 </div>
               </div>
               
-              <div className="flex gap-4">
+                <div className="flex flex-wrap gap-4">
                 <label className="flex items-center gap-2">
                   <input 
                     type="checkbox" 
@@ -416,17 +416,17 @@ export default function NoticesPage() {
                 </label>
               </div>
               
-              <div className="flex justify-end gap-3 pt-4 border-t">
+                            <div className="flex flex-col-reverse md:flex-row justify-end gap-3 pt-4 border-t">
                 <button 
                   type="button" 
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 border rounded font-bold text-gray-700 hover:bg-gray-50"
+                  className="px-4 py-2 border rounded font-bold text-gray-700 hover:bg-gray-50 w-full md:w-auto"
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit" 
-                  className="px-4 py-2 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 flex items-center gap-2"
+                  className="px-4 py-2 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 flex items-center justify-center gap-2 w-full md:w-auto"
                 >
                   <Save size={16}/> {editingNotice ? 'Update' : 'Create'} Notice
                 </button>

@@ -241,12 +241,14 @@ export default function TimetablePage() {
       <Toaster position="top-right" />
       
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="bg-white rounded-lg shadow p-4 mb-6 grid grid-cols-2 md:flex md:flex-row gap-3 md:gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Timetable Management</h1>
-          <p className="text-gray-600">Create and manage class schedules</p>
-        </div>
-        <button 
+          <label className="block text-sm font-medium text-gray-700 mb-1">Class</label>
+          <select 
+            value={selectedClass} 
+            onChange={(e) => setSelectedClass(e.target.value)}
+            className="p-2 border rounded text-gray-900 w-full md:min-w-[200px]"
+          >
           onClick={() => { setEditingEntry(null); setShowModal(true) }}
           className="bg-blue-600 text-white px-4 py-2 rounded font-bold flex items-center gap-2 hover:bg-blue-700"
         >
@@ -270,12 +272,12 @@ export default function TimetablePage() {
             ))}
           </select>
         </div>
-        <div>
+                <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Term</label>
           <select 
             value={selectedTerm} 
             onChange={(e) => setSelectedTerm(e.target.value)}
-            className="p-2 border rounded text-gray-900"
+            className="p-2 border rounded text-gray-900 w-full md:w-auto"
           >
             {termOptions.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
@@ -285,12 +287,12 @@ export default function TimetablePage() {
           <select 
             value={selectedSession} 
             onChange={(e) => setSelectedSession(e.target.value)}
-            className="p-2 border rounded text-gray-900 min-w-[150px]"
+            className="p-2 border rounded text-gray-900 w-full md:min-w-[150px]"
           >
             {sessions.map(s => <option key={s.session_name} value={s.session_name}>{s.session_name}</option>)}
           </select>
         </div>
-        <div className="flex-1 min-w-[200px]">
+        <div className="col-span-2 md:col-span-1 md:flex-1">
           <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
           <input 
             type="text" 
@@ -302,6 +304,7 @@ export default function TimetablePage() {
         </div>
       </div>
 
+    
       {/* Timetable Grid */}
       <div className="bg-white rounded-lg shadow overflow-x-auto mb-6">
         <table className="w-full min-w-[800px]">
@@ -377,6 +380,7 @@ export default function TimetablePage() {
           </tbody>
         </table>
       </div>
+      <p className="md:hidden -mt-4 mb-6 text-xs text-gray-500 text-center">← Swipe the timetable sideways to see all days →</p>
 
       {/* List View (for search results) */}
       {searchTerm && (
@@ -387,14 +391,14 @@ export default function TimetablePage() {
               <p className="text-gray-500 text-sm">No matching periods found.</p>
             ) : (
               filteredEntries.map(entry => (
-                <div key={entry.id} className="flex justify-between items-center p-3 bg-gray-50 rounded">
-                  <div>
-                    <p className="font-bold text-gray-900">{entry.subject_name}</p>
-                    <p className="text-sm text-gray-600">
+                <div key={entry.id} className="flex flex-wrap justify-between items-start gap-2 p-3 bg-gray-50 rounded">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-gray-900 break-words">{entry.subject_name}</p>
+                    <p className="text-xs md:text-sm text-gray-600">
                       {entry.day_of_week} • Period {entry.period_number} • {entry.start_time} - {entry.end_time}
                     </p>
-                    {entry.teacher_name && <p className="text-sm text-gray-600">👨‍🏫 {entry.teacher_name}</p>}
-                    {entry.room_number && <p className="text-sm text-gray-600">📍 {entry.room_number}</p>}
+                    {entry.teacher_name && <p className="text-xs md:text-sm text-gray-600">👨‍🏫 {entry.teacher_name}</p>}
+                    {entry.room_number && <p className="text-xs md:text-sm text-gray-600">📍 {entry.room_number}</p>}
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => handleEdit(entry)} className="text-blue-600 hover:bg-blue-50 p-1 rounded"><Edit size={16}/></button>
@@ -500,17 +504,17 @@ export default function TimetablePage() {
                 </div>
               </div>
               
-              <div className="flex justify-end gap-3 pt-4 border-t">
+              <div className="flex flex-col-reverse md:flex-row justify-end gap-3 pt-4 border-t">
                 <button 
                   type="button" 
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 border rounded font-bold text-gray-700 hover:bg-gray-50"
+                  className="px-4 py-2 border rounded font-bold text-gray-700 hover:bg-gray-50 w-full md:w-auto"
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit" 
-                  className="px-4 py-2 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 flex items-center gap-2"
+                  className="px-4 py-2 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 flex items-center justify-center gap-2 w-full md:w-auto"
                 >
                   <Save size={16}/> {editingEntry ? 'Update' : 'Add'} Period
                 </button>
