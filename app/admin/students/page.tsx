@@ -521,31 +521,34 @@ export default function StudentsPage() {
     <div className="min-h-screen bg-gray-50">
       <Toaster position="top-right" />
       <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-6">
+                <div className="max-w-7xl mx-auto px-4 py-6 text-center md:text-left">
           <h1 className="text-2xl font-bold text-gray-900">Students Management</h1>
           <p className="text-gray-600 mt-1">Manage student records, classes, and portal access</p>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
-              <div><p className="text-sm text-gray-600 font-medium">Total Students</p><p className="text-3xl font-bold text-gray-900 mt-1">{totalCount}</p></div>
-              <div className="bg-blue-100 p-3 rounded-full"><Users size={24} className="text-blue-600" /></div>
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6 mb-8">
+          <div className="center-mobile bg-white rounded-xl shadow-md p-4 md:p-6 border border-gray-200">
+            <div className="flex items-center justify-center mb-3 md:mb-4">
+              <div className="p-2 md:p-3 rounded-lg bg-blue-500"><Users className="text-white" size={24} /></div>
             </div>
+            <h3 className="text-xl md:text-3xl font-bold text-gray-900">{totalCount}</h3>
+            <p className="text-gray-600 text-xs md:text-sm font-medium text-center">Total Students</p>
           </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
-              <div><p className="text-sm text-gray-600 font-medium">Active Students</p><p className="text-3xl font-bold text-gray-900 mt-1">{students.filter(s => s.active).length}</p></div>
-              <div className="bg-green-100 p-3 rounded-full"><UserCheck size={24} className="text-green-600" /></div>
+          <div className="center-mobile bg-white rounded-xl shadow-md p-4 md:p-6 border border-gray-200">
+            <div className="flex items-center justify-center mb-3 md:mb-4">
+              <div className="p-2 md:p-3 rounded-lg bg-green-500"><UserCheck className="text-white" size={24} /></div>
             </div>
+            <h3 className="text-xl md:text-3xl font-bold text-gray-900">{students.filter(s => s.active).length}</h3>
+            <p className="text-gray-600 text-xs md:text-sm font-medium text-center">Active Students</p>
           </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center justify-between">
-              <div><p className="text-sm text-gray-600 font-medium">Portal Accounts</p><p className="text-3xl font-bold text-gray-900 mt-1">{students.filter(s => s.create_portal_account).length}</p></div>
-              <div className="bg-purple-100 p-3 rounded-full"><GraduationCap size={24} className="text-purple-600" /></div>
+          <div className="center-mobile bg-white rounded-xl shadow-md p-4 md:p-6 border border-gray-200">
+            <div className="flex items-center justify-center mb-3 md:mb-4">
+              <div className="p-2 md:p-3 rounded-lg bg-purple-500"><GraduationCap className="text-white" size={24} /></div>
             </div>
+            <h3 className="text-xl md:text-3xl font-bold text-gray-900">{students.filter(s => s.create_portal_account).length}</h3>
+            <p className="text-gray-600 text-xs md:text-sm font-medium text-center">Portal Accounts</p>
           </div>
         </div>
 
@@ -563,8 +566,8 @@ export default function StudentsPage() {
         {activeTab === 'list' && (
           <>
             <div className="bg-white rounded-lg shadow p-4 mb-6 flex flex-col lg:flex-row gap-4 justify-between items-center">
-              <div className="flex flex-col md:flex-row gap-4 w-full lg:w-auto">
-                <div className="relative">
+                            <div className="grid grid-cols-2 md:flex md:flex-row gap-3 md:gap-4 w-full lg:w-auto">
+                <div className="relative col-span-2 md:col-span-1">
                   <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                   <input 
                     type="text" 
