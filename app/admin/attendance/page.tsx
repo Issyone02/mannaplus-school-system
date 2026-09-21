@@ -280,19 +280,19 @@ export default function AttendancePage() {
     <div className="p-4 md:p-8 bg-gray-50 min-h-screen">
       <Toaster position="top-right" />
       
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col md:flex-row justify-between items-center gap-3 md:gap-0 mb-6 text-center md:text-left">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Attendance Management</h1>
           <p className="text-gray-600">Mark daily attendance for your classes</p>
         </div>
-        <div className="flex gap-3">
-          <button onClick={exportToCSV} className="flex items-center gap-2 bg-gray-600 text-white px-4 py-2 rounded font-bold hover:bg-gray-700">
+        <div className="flex gap-3 w-full md:w-auto justify-center">
+          <button onClick={exportToCSV} className="flex items-center justify-center gap-2 bg-gray-600 text-white px-4 py-2 rounded font-bold hover:bg-gray-700 flex-1 md:flex-none">
             <Download size={18}/> Export CSV
           </button>
           <button 
             onClick={saveAllAttendance} 
             disabled={saving}
-            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded font-bold hover:bg-green-700 disabled:opacity-50"
+            className="flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2 rounded font-bold hover:bg-green-700 disabled:opacity-50 flex-1 md:flex-none"
           >
             <Save size={18}/> {saving ? 'Saving...' : 'Save All'}
           </button>
@@ -310,8 +310,8 @@ export default function AttendancePage() {
       </div>
 
       {!isUnlocked && Object.values(attendance).some(r => r.is_locked) && (
-        <div className="bg-red-50 border-2 border-red-300 rounded-lg p-6 mb-6">
-          <div className="flex items-center justify-between flex-wrap gap-4">
+        <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4 md:p-6 mb-6">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <Lock className="text-red-600" size={32} />
               <div>
@@ -337,7 +337,7 @@ export default function AttendancePage() {
 
       {isUnlocked && (
         <div className="bg-green-50 border-2 border-green-300 rounded-lg p-4 mb-6">
-          <div className="flex items-center gap-3 text-green-800">
+          <div className="flex flex-wrap items-center gap-3 text-green-800">
             <Unlock size={20} />
             <div>
               <p className="font-bold">Attendance Unlocked</p>
@@ -357,13 +357,13 @@ export default function AttendancePage() {
       )}
 
       <div className="bg-white rounded-lg shadow p-4 mb-6">
-        <div className="flex flex-wrap gap-4 items-center">
+        <div className="grid grid-cols-2 md:flex md:flex-row gap-3 md:gap-4 items-end">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Class</label>
             <select 
               value={selectedClass} 
               onChange={(e) => setSelectedClass(e.target.value)}
-              className="p-2 border rounded text-gray-900 min-w-[200px]"
+              className="p-2 border rounded text-gray-900 w-full md:min-w-[200px]"
             >
               <option value="">Select a Class...</option>
               {classes.map(c => (
@@ -379,10 +379,10 @@ export default function AttendancePage() {
               type="date" 
               value={selectedDate} 
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="p-2 border rounded text-gray-900"
+              className="p-2 border rounded text-gray-900 w-full md:w-auto"
             />
           </div>
-          <div className="flex-1 min-w-[200px]">
+          <div className="col-span-2 md:flex-1">
             <label className="block text-sm font-medium text-gray-700 mb-1">Search Students</label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18}/>
@@ -398,36 +398,35 @@ export default function AttendancePage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-        <div className="bg-white p-4 rounded-lg shadow text-center">
-          <p className="text-sm text-gray-600">Total</p>
-          <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 md:gap-4 mb-6">
+        <div className="center-mobile bg-white rounded-xl shadow-md p-3 md:p-4 border border-gray-200">
+          <h3 className="text-xl md:text-2xl font-bold text-gray-900">{stats.total}</h3>
+          <p className="text-gray-600 text-xs md:text-sm font-medium text-center">Total</p>
         </div>
-        <div className="bg-green-50 p-4 rounded-lg shadow text-center border border-green-200">
-          <p className="text-sm text-green-700">Present</p>
-          <p className="text-2xl font-bold text-green-900">{stats.present}</p>
+        <div className="center-mobile bg-green-50 rounded-xl shadow-md p-3 md:p-4 border-2 border-green-200">
+          <h3 className="text-xl md:text-2xl font-bold text-green-900">{stats.present}</h3>
+          <p className="text-green-700 text-xs md:text-sm font-medium text-center">Present</p>
         </div>
-        <div className="bg-red-50 p-4 rounded-lg shadow text-center border border-red-200">
-          <p className="text-sm text-red-700">Absent</p>
-          <p className="text-2xl font-bold text-red-900">{stats.absent}</p>
+        <div className="center-mobile bg-red-50 rounded-xl shadow-md p-3 md:p-4 border-2 border-red-200">
+          <h3 className="text-xl md:text-2xl font-bold text-red-900">{stats.absent}</h3>
+          <p className="text-red-700 text-xs md:text-sm font-medium text-center">Absent</p>
         </div>
-        <div className="bg-yellow-50 p-4 rounded-lg shadow text-center border border-yellow-200">
-          <p className="text-sm text-yellow-700">Late</p>
-          <p className="text-2xl font-bold text-yellow-900">{stats.late}</p>
+        <div className="center-mobile bg-yellow-50 rounded-xl shadow-md p-3 md:p-4 border-2 border-yellow-200">
+          <h3 className="text-xl md:text-2xl font-bold text-yellow-900">{stats.late}</h3>
+          <p className="text-yellow-700 text-xs md:text-sm font-medium text-center">Late</p>
         </div>
-        <div className="bg-blue-50 p-4 rounded-lg shadow text-center border border-blue-200">
-          <p className="text-sm text-blue-700">Excused</p>
-          <p className="text-2xl font-bold text-blue-900">{stats.excused}</p>
+        <div className="center-mobile bg-blue-50 rounded-xl shadow-md p-3 md:p-4 border-2 border-blue-200">
+          <h3 className="text-xl md:text-2xl font-bold text-blue-900">{stats.excused}</h3>
+          <p className="text-blue-700 text-xs md:text-sm font-medium text-center">Excused</p>
         </div>
-        <div className="bg-purple-50 p-4 rounded-lg shadow text-center border border-purple-200">
-          <p className="text-sm text-purple-700">Attendance</p>
-          <p className="text-2xl font-bold text-purple-900">{stats.percentage}%</p>
+        <div className="center-mobile bg-purple-50 rounded-xl shadow-md p-3 md:p-4 border-2 border-purple-200">
+          <h3 className="text-xl md:text-2xl font-bold text-purple-900">{stats.percentage}%</h3>
+          <p className="text-purple-700 text-xs md:text-sm font-medium text-center">Attendance</p>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
+      <div className="bg-white rounded-lg shadow overflow-x-auto">
+        <table className="w-full min-w-[800px]">
             <thead className="bg-gray-50">
               <tr>
                 <th className="p-3 text-left text-gray-900 font-bold">Admission No</th>
@@ -465,7 +464,7 @@ export default function AttendancePage() {
                                 key={option.value}
                                 onClick={() => handleStatusChange(student.id, option.value)}
                                 disabled={isLocked}
-                                className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all ${
+                                className={`flex items-center gap-1 px-2 md:px-3 py-1 md:py-1.5 rounded-full text-[10px] md:text-xs font-bold border-2 transition-all ${
                                   isActive 
                                     ? `${option.color} ring-2 ring-offset-1 ring-gray-400` 
                                     : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
@@ -508,9 +507,11 @@ export default function AttendancePage() {
                 })
               )}
             </tbody>
-          </table>
-        </div>
+        </table>
       </div>
+      {filteredStudents.length > 0 && (
+        <p className="md:hidden mt-2 text-xs text-gray-500 text-center">← Swipe the table sideways to see Status, Actions & Note →</p>
+      )}
 
       <StudentAttendanceSummary 
         isOpen={isSummaryOpen}
