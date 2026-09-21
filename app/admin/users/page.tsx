@@ -236,24 +236,24 @@ export default function UserManagementPage() {
   return (
     <div className="p-4 md:p-8 bg-gray-50 min-h-screen">
       <Toaster position="top-right" />
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col md:flex-row justify-between items-center gap-3 md:gap-0 mb-6 text-center md:text-left">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
           <p className="text-gray-600 mt-1 font-medium">Create and manage users with automatic Clerk integration</p>
         </div>
-        <button onClick={() => { setEditingUser(null); setFormData({ email: '', full_name: '', role: 'teacher', phone: '', password: '' }); setShowModal(true); }} className="flex items-center space-x-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 font-bold">
+        <button onClick={() => { setEditingUser(null); setFormData({ email: '', full_name: '', role: 'teacher', phone: '', password: '' }); setShowModal(true); }} className="flex items-center justify-center space-x-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 font-bold w-full md:w-auto">
           <UserPlus size={20} />
           <span>Create New User</span>
         </button>
       </div>
       <div className="mb-6">
-        <div className="relative max-w-md">
+        <div className="relative md:max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
           <input type="text" placeholder="Search by name, email, or role..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 text-gray-900 font-medium" />
         </div>
       </div>
-      <div className="table-container bg-white rounded-xl shadow-md border border-gray-200">
-        <table className="responsive-table w-full">
+      <div className="table-container bg-white rounded-xl shadow-md border border-gray-200 overflow-x-auto">
+        <table className="responsive-table w-full min-w-[900px]">
           <thead className="bg-gray-100 border-b-2 border-gray-300">
             <tr>
               <th className="min-w-[250px] px-6 py-4 text-left text-gray-900 font-bold">User</th>
@@ -276,7 +276,7 @@ export default function UserManagementPage() {
                   </td>
                   <td className="px-6 py-4"><span className="truncate-text text-gray-900 font-medium" title={user.email}>{user.email}</span></td>
                   <td className="px-6 py-4">
-                    <select value={user.role} onChange={(e) => handleUpdateRole(user.id, e.target.value as UserRole)} className="px-3 py-1 border-2 border-gray-300 rounded-lg text-gray-900 font-bold focus:ring-2 focus:ring-green-500">
+                    <select value={user.role} onChange={(e) => handleUpdateRole(user.id, e.target.value as UserRole)} className="px-2 md:px-3 py-1 border-2 border-gray-300 rounded-lg text-xs md:text-sm text-gray-900 font-bold focus:ring-2 focus:ring-green-500">
                       <option value="admin">🏢 Admin</option>
                       <option value="teacher">👨‍🏫 Teacher</option>
                       <option value="parent">👨‍👩‍👦 Parent</option>
@@ -289,11 +289,11 @@ export default function UserManagementPage() {
                       {user.active ? '✓ Active' : '✗ Inactive'}
                     </button>
                   </td>
-                  <td className="px-6 py-4">
-                    <div className="flex space-x-2">
-                      {user.role === 'student' && (<button onClick={() => openLinkModal(user)} className="p-2 text-blue-600 hover:bg-blue-50 rounded font-bold" title="Link to Student"><Link size={18} /></button>)}
-                      <button onClick={() => { setEditingUser(user); setFormData({ email: user.email, full_name: user.full_name, role: user.role, phone: user.phone || '', password: '' }); setShowModal(true); }} className="p-2 text-green-600 hover:bg-green-50 rounded font-bold" title="Edit"><Edit size={18} /></button>
-                      <button onClick={() => handleDelete(user)} className="p-2 text-red-600 hover:bg-red-50 rounded font-bold" title="Delete User"><Trash2 size={18} /></button>
+                  <td className="px-3 md:px-6 py-4">
+                    <div className="flex space-x-1 md:space-x-2">
+                      {user.role === 'student' && (<button onClick={() => openLinkModal(user)} className="p-1.5 md:p-2 text-blue-600 hover:bg-blue-50 rounded font-bold" title="Link to Student"><Link size={18} /></button>)}
+                      <button onClick={() => { setEditingUser(user); setFormData({ email: user.email, full_name: user.full_name, role: user.role, phone: user.phone || '', password: '' }); setShowModal(true); }} className="p-1.5 md:p-2 text-green-600 hover:bg-green-50 rounded font-bold" title="Edit"><Edit size={18} /></button>
+                      <button onClick={() => handleDelete(user)} className="p-1.5 md:p-2 text-red-600 hover:bg-red-50 rounded font-bold" title="Delete User"><Trash2 size={18} /></button>
                     </div>
                   </td>
                 </tr>
@@ -302,6 +302,9 @@ export default function UserManagementPage() {
           </tbody>
         </table>
       </div>
+      {filteredUsers.length > 0 && (
+        <p className="md:hidden mt-2 text-xs text-gray-500 text-center">← Swipe the table sideways to see Role, Status & Actions →</p>
+      )}
 
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -345,9 +348,9 @@ export default function UserManagementPage() {
                   <p className="text-xs text-gray-600 mt-1">If blank, Clerk generates one and emails it</p>
                 </div>
               )}
-              <div className="flex justify-end space-x-3 pt-4 border-t-2 border-gray-200">
-                <button type="button" onClick={() => setShowModal(false)} className="px-6 py-3 border-2 border-gray-300 rounded-lg hover:bg-gray-50 font-bold text-gray-900">Cancel</button>
-                <button type="submit" className="flex items-center space-x-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 font-bold"><Save size={18} /><span>{editingUser ? 'Update' : 'Create'} User</span></button>
+              <div className="flex flex-col-reverse md:flex-row justify-end gap-3 md:space-x-3 pt-4 border-t-2 border-gray-200">
+                <button type="button" onClick={() => setShowModal(false)} className="px-6 py-3 border-2 border-gray-300 rounded-lg hover:bg-gray-50 font-bold text-gray-900 w-full md:w-auto">Cancel</button>
+                <button type="submit" className="flex items-center justify-center space-x-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 font-bold w-full md:w-auto"><Save size={18} /><span>{editingUser ? 'Update' : 'Create'} User</span></button>
               </div>
             </form>
           </div>
@@ -376,8 +379,8 @@ export default function UserManagementPage() {
                 ))}
               </div>
             )}
-            <div className="flex justify-end space-x-3 pt-4 border-t-2 border-gray-200">
-              <button onClick={() => setShowLinkModal(false)} className="px-4 py-2 border-2 border-gray-300 rounded-lg hover:bg-gray-50 font-bold text-gray-900">Cancel</button>
+            <div className="flex justify-end pt-4 border-t-2 border-gray-200">
+              <button onClick={() => setShowLinkModal(false)} className="px-4 py-2 border-2 border-gray-300 rounded-lg hover:bg-gray-50 font-bold text-gray-900 w-full md:w-auto">Cancel</button>
             </div>
           </div>
         </div>
