@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Download, Search, FileText } from 'lucide-react'
+import { Download, Search, FileText, X } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
 
 interface AuditLog {
@@ -66,6 +66,7 @@ export default function AuditLogsPage() {
   const [toDate, setToDate] = useState('')
   const [page, setPage] = useState(1)
   const [roleByEmail, setRoleByEmail] = useState<Record<string, string>>({})
+  const [selectedLog, setSelectedLog] = useState<any | null>(null)
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(searchTerm), 250)
@@ -282,21 +283,32 @@ export default function AuditLogsPage() {
               </tr>
             ) : (
               paginated.map(l => (
-                <tr key={l.id} className="border-t hover:bg-gray-50">
-                  <td className="p-3 text-gray-700 whitespace-nowrap">{new Date(l.created_at).toLocaleString()}</td>
-                  <td className="p-3 text-gray-900 font-medium">{l.email}</td>
-                  <td className="p-3">
+                <tr
+                  key={l.id}
+                  onClick={() => setSelectedLog(l)}
+                  className="border-t hover:bg-green-50 cursor-pointer transition-colors"
+                  title="Click to view full log details"
+                >
+                  <td className="p-2 md:p-3 text-gray-700 whitespace-nowrap text-xs md:text-sm">{new Date(l.created_at).toLocaleString()}</td>
+                  <td className="p-2 md:p-3 text-gray-900 font-medium">
+                    <span className="block max-w-[130px] md:max-w-[200px] truncate" title={l.email}>{l.email}</span>
+                  </td>
+                  <td className="p-2 md:p-3">
                     <span className={`px-2 py-1 rounded text-xs font-bold ${l.role === 'admin' ? 'bg-red-100 text-red-800' : l.role === 'teacher' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
                       {l.role || 'unknown'}
                     </span>
                   </td>
-                  <td className="p-3">
+                  <td className="p-2 md:p-3">
                     <span className={`px-2 py-1 rounded text-xs font-bold whitespace-nowrap ${CATEGORY_BADGE[l.category]}`}>
                       {TABS.find(t => t.key === l.category)?.label || 'Other'}
                     </span>
                   </td>
-                  <td className="p-3 text-gray-900 font-medium whitespace-nowrap">{l.actionText}</td>
-                  <td className="p-3 text-gray-700">{l.descriptionText}</td>
+                  <td className="p-2 md:p-3 text-gray-900 font-medium">
+                    <span className="block max-w-[110px] md:max-w-[180px] truncate" title={l.actionText}>{l.actionText}</span>
+                  </td>
+                  <td className="p-2 md:p-3 text-gray-700">
+                    <span className="block max-w-[160px] md:max-w-[300px] truncate" title={l.descriptionText}>{l.descriptionText}</span>
+                  </td>
                 </tr>
               ))
             )}
@@ -317,6 +329,57 @@ export default function AuditLogsPage() {
             <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1 border rounded font-bold text-gray-700 disabled:opacity-50">Previous</button>
             <span className="px-3 py-1 text-sm font-bold text-gray-700">Page {page} of {totalPages}</span>
             <button onClick={() => setPage(p => p + 1)} disabled={page >= totalPages} className="px-3 py-1 border rounded font-bold text-gray-700 disabled:opacity-50">Next</button>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ Log Detail Modal — click/tap any row to see the complete record */}
+      {selectedLog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[100]" onClick={() => setSelectedLog(null)}>
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-900">Log Details</h2>
+              <button onClick={() => setSelectedLog(null)} className="text-gray-700 hover:text-gray-900"><X size={24} /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <p className="text-xs font-bold text-gray-500 uppercase mb-1">Date & Time</p>
+                <p className="text-gray-900 font-medium">{new Date(selectedLog.created_at).toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-gray-500 uppercase mb-1">User Email</p>
+                <p className="text-gray-900 font-medium break-all">{selectedLog.email}</p>
+              </div>
+              <div className="flex gap-4 flex-wrap">
+                <div>
+                  <p className="text-xs font-bold text-gray-500 uppercase mb-1">Role</p>
+                  <span className={`px-2 py-1 rounded text-xs font-bold ${selectedLog.role === 'admin' ? 'bg-red-100 text-red-800' : selectedLog.role === 'teacher' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
+                    {selectedLog.role || 'unknown'}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-gray-500 uppercase mb-1">Category</p>
+                  <span className={`px-2 py-1 rounded text-xs font-bold ${CATEGORY_BADGE[(selectedLog.category as CategoryKey) || 'other']}`}>
+                    {TABS.find(t => t.key === selectedLog.category)?.label || 'Other'}
+                  </span>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-gray-500 uppercase mb-1">Action</p>
+                <p className="text-gray-900 font-mono text-sm break-words">{selectedLog.actionText}</p>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-gray-500 uppercase mb-1">Description</p>
+                <p className="text-gray-700 text-sm whitespace-pre-wrap break-words">{selectedLog.descriptionText || '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-gray-500 uppercase mb-1">Log ID</p>
+                <p className="text-gray-500 text-xs font-mono break-all">{selectedLog.id}</p>
+              </div>
+            </div>
+            <div className="p-4 border-t bg-gray-50">
+              <button onClick={() => setSelectedLog(null)} className="w-full px-4 py-2 border rounded font-bold text-gray-700 hover:bg-gray-100">Close</button>
+            </div>
           </div>
         </div>
       )}
