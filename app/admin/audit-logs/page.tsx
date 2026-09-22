@@ -65,13 +65,25 @@ export default function AuditLogsPage() {
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
   const [page, setPage] = useState(1)
+  const [roleByEmail, setRoleByEmail] = useState<Record<string, string>>({})
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(searchTerm), 250)
     return () => clearTimeout(t)
   }, [searchTerm])
 
-  useEffect(() => { fetchLogs() }, [debouncedSearch, roleFilter, fromDate, toDate])
+  // ✅ audit_logs has NO role column — role lives on users. Load email→role map once.
+  useEffect(() => {
+    const fetchRoles = async () => {
+      const { data } = await supabase.from('users').select('email, role')
+      const map: Record<string, string> = {}
+      ;(data || []).forEach((u: any) => { if (u.email) map[String(u.email).toLowerCase()] = u.role })
+      setRoleByEmail(map)
+    }
+    fetchRoles()
+  }, [])
+
+  useEffect(() => { fetchLogs() }, [debouncedSearch, fromDate, toDate])
   useEffect(() => { setPage(1) }, [activeTab, debouncedSearch, roleFilter, fromDate, toDate])
 
   const fetchLogs = async () => {
@@ -83,7 +95,7 @@ export default function AuditLogsPage() {
         .order('created_at', { ascending: false })
         .limit(1000)
 
-      if (roleFilter) q = q.eq('role', roleFilter)
+      // ✅ Role filtering is applied client-side (see roleFiltered below)
       if (fromDate) q = q.gte('created_at', `${fromDate}T00:00:00`)
       if (toDate) q = q.lte('created_at', `${toDate}T23:59:59`)
 
@@ -104,21 +116,27 @@ export default function AuditLogsPage() {
   }
 
   // ✅ Normalize fields defensively + attach category
-  const enriched = logs.map(l => ({
-    ...l,
-    email: l.user_email || l.email || l.actor || 'Unknown',
-    actionText: l.action || 'Unknown',
-    descriptionText: l.description || l.details || '',
-    category: categorize(l.action || ''),
-  }))
+  const enriched = logs.map(l => {
+    const email = l.user_email || l.email || l.actor || 'Unknown'
+    return {
+      ...l,
+      email,
+      role: roleByEmail[String(email).toLowerCase()] || 'unknown',
+      actionText: l.action || 'Unknown',
+      descriptionText: l.description || l.details || '',
+      category: categorize(l.action || ''),
+    }
+  })
 
   // ✅ Live counts per tab (respect current search/role/date filters)
+  const roleFiltered = roleFilter ? enriched.filter(l => l.role === roleFilter) : enriched
+
   const counts = TABS.reduce((acc, t) => {
-    acc[t.key] = t.key === 'all' ? enriched.length : enriched.filter(l => l.category === t.key).length
+    acc[t.key] = t.key === 'all' ? roleFiltered.length : roleFiltered.filter(l => l.category === t.key).length
     return acc
   }, {} as Record<CategoryKey, number>)
 
-  const tabFiltered = activeTab === 'all' ? enriched : enriched.filter(l => l.category === activeTab)
+  const tabFiltered = activeTab === 'all' ? roleFiltered : roleFiltered.filter(l => l.category === activeTab)
 
   const totalPages = Math.max(1, Math.ceil(tabFiltered.length / PAGE_SIZE))
   const paginated = tabFiltered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
@@ -189,26 +207,35 @@ export default function AuditLogsPage() {
       {/* Filters */}
       <div className="bg-white rounded shadow p-4 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="relative lg:col-span-2">
-            <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search by email, action, description..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border rounded text-gray-900 placeholder-gray-500"
-            />
+          <div className="lg:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+            <div className="relative">
+              <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by email, action, description..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border rounded text-gray-900 placeholder-gray-500"
+              />
+            </div>
           </div>
-          <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="px-4 py-2 border rounded text-gray-900 bg-white">
-            <option value="">All Roles</option>
-            <option value="admin">Admin</option>
-            <option value="teacher">Teacher</option>
-            <option value="parent">Parent</option>
-            <option value="student">Student</option>
-          </select>
-          <div className="grid grid-cols-2 gap-2">
-            <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="px-2 py-2 border rounded text-gray-900" title="From date" />
-            <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="px-2 py-2 border rounded text-gray-900" title="To date" />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+            <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="w-full px-4 py-2 border rounded text-gray-900 bg-white">
+              <option value="">All Roles</option>
+              <option value="admin">Admin</option>
+              <option value="teacher">Teacher</option>
+              <option value="parent">Parent</option>
+              <option value="student">Student</option>
+            </select>
+          </div>
+          <div className="min-w-0">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Date Range (From → To)</label>
+            <div className="grid grid-cols-2 gap-2">
+              <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="w-full min-w-0 px-2 py-2 border rounded text-gray-900" title="From date" />
+              <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="w-full min-w-0 px-2 py-2 border rounded text-gray-900" title="To date" />
+            </div>
           </div>
         </div>
       </div>
