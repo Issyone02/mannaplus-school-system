@@ -28,11 +28,11 @@ export default function Navbar() {
     return pathname === href || pathname.startsWith(href + '/');
   };
 
-  // Desktop link styles
+  // Desktop link styles (more breathing room, subtle hover background)
   const desktopLinkClass = (href: string) =>
     isActive(href)
-      ? 'bg-green-600 text-white px-4 py-1.5 rounded-full font-bold transition-colors'
-      : 'text-gray-700 hover:text-green-600 transition-colors font-medium';
+      ? 'bg-green-600 text-white px-5 py-2 rounded-full font-bold transition-colors whitespace-nowrap'
+      : 'text-gray-700 hover:text-green-600 hover:bg-green-50 px-3 py-2 rounded-full transition-colors font-medium whitespace-nowrap';
 
   // Mobile link styles
   const mobileLinkClass = (href: string) =>
@@ -47,22 +47,22 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           {/* Logo */}
-          <div className="flex items-center">
-            <Link href="/" className="flex items-center space-x-3">
+          <div className="flex items-center mr-6 md:mr-12 flex-shrink-0">
+            <Link href="/" className="flex items-center space-x-2 md:space-x-3">
               <img
                 src="https://mecvtpnqmffqvniioudk.supabase.co/storage/v1/object/public/school-assets/school-logo.png"
                 alt="Mannaplus Group of Schools"
-                className="h-16 w-24 object-contain"
+                className="h-12 w-16 md:h-16 md:w-24 object-contain flex-shrink-0"
               />
-              <div>
-                <h1 className="text-lg font-bold text-gray-900">Mannaplus Group of Schools</h1>
-                <p className="text-xs text-gray-500">Ogun, Nigeria</p>
+              <div className="min-w-0">
+                <h1 className="text-xs sm:text-sm md:text-lg font-bold text-gray-900 whitespace-nowrap">Mannaplus Group of Schools</h1>
+                <p className="text-[10px] sm:text-xs text-gray-500 whitespace-nowrap">Ogun, Nigeria</p>
               </div>
             </Link>
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-2">
+          <div className="hidden md:flex items-center space-x-3 lg:space-x-4">
             {navLinks.map((link) => (
               <Link
                 key={link.name}
@@ -74,15 +74,15 @@ export default function Navbar() {
             ))}
 
             {/* Auth Controls */}
-            <div className="flex items-center space-x-3 ml-4 border-l border-gray-200 pl-4">
+            <div className="flex items-center space-x-4 ml-4 border-l border-gray-200 pl-4">
               {isSignedIn ? (
                 <>
                   <Link
                     href="/dashboard"
                     className={
                       isDashboardActive
-                        ? 'bg-green-600 text-white px-4 py-1.5 rounded-full font-bold transition-colors'
-                        : 'text-gray-700 hover:text-green-600 font-medium'
+                        ? 'bg-green-600 text-white px-5 py-2 rounded-full font-bold transition-colors'
+                        : 'text-gray-700 hover:text-green-600 hover:bg-green-50 px-3 py-2 rounded-full transition-colors font-medium'
                     }
                   >
                     Dashboard
@@ -92,12 +92,12 @@ export default function Navbar() {
               ) : (
                 <>
                   <SignInButton mode="modal">
-                    <button className="text-gray-700 hover:text-green-600 font-medium">
+                    <button className="text-gray-700 hover:text-green-600 hover:bg-green-50 px-3 py-2 rounded-full transition-colors font-medium whitespace-nowrap">
                       Sign In
                     </button>
                   </SignInButton>
                   <SignUpButton mode="modal">
-                    <button className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium">
+                    <button className="bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium whitespace-nowrap">
                       Sign Up
                     </button>
                   </SignUpButton>
