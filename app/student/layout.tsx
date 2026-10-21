@@ -1,6 +1,7 @@
 'use client';
 
 import { useUser, UserButton } from '@clerk/nextjs';
+import NotificationBell from '@/components/NotificationBell'
 import { Menu } from 'lucide-react';
 import { redirect } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -76,6 +77,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
           <Menu size={24} />
         </button>
         <h1 className="font-bold text-lg">Student Portal</h1>
+        <NotificationBell />
         <UserButton />
       </div>
 

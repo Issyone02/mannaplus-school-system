@@ -6,7 +6,9 @@ import { useEffect, useState } from 'react';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 import IdleTimeout from '@/components/IdleTimeout';
 import { Menu } from 'lucide-react';
-import { UserButton } from '@clerk/nextjs';
+import { UserButton } from '@clerk/nextjs'
+import NotificationBell from '@/components/NotificationBell'
+
 
 /**
  * ✅ Admin access list — single source of truth (same pattern as app/dashboard/page.tsx).
@@ -65,6 +67,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <Menu size={24} />
         </button>
         <h1 className="font-bold text-lg">Admin Portal</h1>
+        <NotificationBell />
         <UserButton />
       </div>
 

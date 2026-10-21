@@ -9,6 +9,7 @@ import IdleTimeout from '@/components/IdleTimeout'
 import { fetchUserRowByClerkId } from '@/lib/fetchUserRow'
 import { Menu } from 'lucide-react';
 import { UserButton } from '@clerk/nextjs';
+import NotificationBell from '@/components/NotificationBell'
 
 export default function TeacherLayout({ children }: { children: React.ReactNode}) {
   const { isSignedIn, isLoaded, user } = useUser();
@@ -59,6 +60,7 @@ export default function TeacherLayout({ children }: { children: React.ReactNode}
           <Menu size={24} />
         </button>
         <h1 className="font-bold text-lg">Teacher Portal</h1>
+        <NotificationBell />
         <UserButton />
       </div>
 

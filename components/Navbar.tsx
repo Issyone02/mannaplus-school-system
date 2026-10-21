@@ -41,6 +41,10 @@ export default function Navbar() {
       : 'block px-3 py-2 text-gray-700 hover:text-green-600 hover:bg-gray-50 rounded-md font-medium';
 
   const isDashboardActive = pathname === '/dashboard' || pathname.startsWith('/dashboard/');
+  
+  // ✅ Check if user is currently inside a portal
+  const PORTAL_PREFIXES = ['/admin', '/teacher', '/parent', '/student', '/portal'];
+  const isInsidePortal = PORTAL_PREFIXES.some(p => pathname.startsWith(p));
 
   return (
     <nav className="bg-white shadow-md sticky top-0 z-50 border-b border-gray-200">
@@ -73,20 +77,23 @@ export default function Navbar() {
               </Link>
             ))}
 
-            {/* Auth Controls */}
+                        {/* Auth Controls */}
             <div className="flex items-center space-x-4 ml-4 border-l border-gray-200 pl-4">
               {isSignedIn ? (
                 <>
-                  <Link
-                    href="/dashboard"
-                    className={
-                      isDashboardActive
-                        ? 'bg-green-600 text-white px-5 py-2 rounded-full font-bold transition-colors'
-                        : 'text-gray-700 hover:text-green-600 hover:bg-green-50 px-3 py-2 rounded-full transition-colors font-medium'
-                    }
-                  >
-                    Dashboard
-                  </Link>
+                  {/* ✅ Hide Dashboard button if inside a portal */}
+                  {!isInsidePortal && (
+                    <Link
+                      href="/dashboard"
+                      className={
+                        isDashboardActive
+                          ? 'bg-green-600 text-white px-5 py-2 rounded-full font-bold transition-colors whitespace-nowrap'
+                          : 'text-gray-700 hover:text-green-600 hover:bg-green-50 px-3 py-2 rounded-full transition-colors font-medium whitespace-nowrap'
+                      }
+                    >
+                      Dashboard
+                    </Link>
+                  )}
                   <UserButton />
                 </>
               ) : (
@@ -137,17 +144,20 @@ export default function Navbar() {
             <div className="border-t border-gray-200 pt-3 mt-3">
               {isSignedIn ? (
                 <>
-                  <Link
-                    href="/dashboard"
-                    className={
-                      isDashboardActive
-                        ? 'block px-3 py-2 bg-green-50 text-green-700 rounded-md font-bold'
-                        : 'block px-3 py-2 text-gray-700 hover:text-green-600 font-medium'
-                    }
-                    onClick={() => setIsOpen(false)}
-                  >
-                    Dashboard
-                  </Link>
+                  {/* ✅ Hide Dashboard button if inside a portal */}
+                  {!isInsidePortal && (
+                    <Link
+                      href="/dashboard"
+                      className={
+                        isDashboardActive
+                          ? 'block px-3 py-2 bg-green-50 text-green-700 rounded-md font-bold'
+                          : 'block px-3 py-2 text-gray-700 hover:text-green-600 font-medium'
+                      }
+                      onClick={() => setIsOpen(false)}
+                    >
+                      Dashboard
+                    </Link>
+                  )}
                   <div className="px-3 py-2">
                     <UserButton />
                   </div>
