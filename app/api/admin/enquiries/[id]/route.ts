@@ -1,22 +1,19 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, NextRequest } from 'next/server'
 import { getAuth } from '@clerk/nextjs/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { logAuditEvent } from '@/lib/auditLog'
 
 export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> } // ✅ Next 16: params is a Promise
+  request: NextRequest,  // ✅ Changed from Request to NextRequest
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // ✅ Next 16: await params
     const { id } = await params
-
-    // ✅ getAuth reads the Bearer token we sent from the client
     const { userId } = getAuth(request)
     console.log('🔐 Auth userId:', userId)
 
     if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized - No Clerk session' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // ✅ Verify user is admin
