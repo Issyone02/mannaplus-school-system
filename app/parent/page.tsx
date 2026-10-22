@@ -14,6 +14,7 @@ import UnifiedReportCard from '@/components/UnifiedReportCard'
 import { calculateClassPositions } from '@/lib/classPositions'
 import { getSchoolAssets, getClassTeacherSignature } from '@/lib/schoolAssets'
 import { enrichResultsWithPreviousTerms } from '@/lib/reportCardData'
+import PaymentRequestModal from '@/components/PaymentRequestModal'
 
 
 interface Student {
