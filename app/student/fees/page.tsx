@@ -36,6 +36,7 @@ interface Payment {
   payment_date: string
   payment_method: string
   amount_paid: number
+  reference_number?: string
   created_at: string
 }
 
