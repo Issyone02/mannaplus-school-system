@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Plus, Search, Edit, Trash2, Pin, AlertTriangle, Users, X, Save } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
+import { sendNotification } from '@/lib/notifications'
+import { logAuditEvent } from '@/lib/auditLog'
+import { useUser } from '@clerk/nextjs'
 
 interface Notice {
   id: string
@@ -26,6 +29,7 @@ interface ClassItem {
 }
 
 export default function NoticesPage() {
+  const { user } = useUser()
   const [notices, setNotices] = useState<Notice[]>([])
   const [classes, setClasses] = useState<ClassItem[]>([]) // ✅ NEW: Dynamic classes
   const [loading, setLoading] = useState(true)
@@ -105,6 +109,16 @@ export default function NoticesPage() {
 
         if (error) throw error
         toast.success('Notice updated!')
+
+        // ✅ AUDIT: Log notice update
+        await logAuditEvent({
+          userEmail: user?.primaryEmailAddress?.emailAddress || 'unknown@admin.com',
+          userRole: 'admin',
+          action: 'update_notice',
+          description: `Updated notice "${formData.title}"`,
+          entityType: 'notice',
+          entityId: editingNotice.id,
+        })
       } else {
         const { error } = await supabase.from('notices').insert([{
           title: formData.title,
@@ -119,6 +133,28 @@ export default function NoticesPage() {
 
         if (error) throw error
         toast.success('Notice created!')
+
+        // ✅ AUDIT: Log notice creation
+        await logAuditEvent({
+          userEmail: user?.primaryEmailAddress?.emailAddress || 'unknown@admin.com',
+          userRole: 'admin',
+          action: 'publish_notice',
+          description: `Published notice "${formData.title}" to ${formData.audience}`,
+          entityType: 'notice',
+          metadata: { audience: formData.audience, target_class: formData.target_class || null, is_urgent: formData.is_urgent },
+        })
+
+        // ✅ TRIGGER: Notify everyone
+        const roles = ['admin', 'teacher', 'parent', 'student']
+        for (const role of roles) {
+          await sendNotification({
+            role: role as any,
+            title: 'New Notice Published',
+            message: formData.title,
+            type: 'info',
+            link: role === 'admin' ? '/admin/notices' : `/${role}/notices`
+          })
+        }
       }
 
       setShowModal(false)
@@ -147,8 +183,21 @@ export default function NoticesPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this notice?')) return
     try {
+      const noticeToDelete = notices.find(n => n.id === id)
       await supabase.from('notices').delete().eq('id', id)
       toast.success('Notice deleted!')
+
+      // ✅ AUDIT: Log notice deletion
+      await logAuditEvent({
+        userEmail: user?.primaryEmailAddress?.emailAddress || 'unknown@admin.com',
+        userRole: 'admin',
+        action: 'delete_notice',
+        description: `Deleted notice "${noticeToDelete?.title || id}"`,
+        entityType: 'notice',
+        entityId: id,
+        severity: 'HIGH',
+      })
+
       fetchNotices()
     } catch (error: any) {
       toast.error('Failed: ' + error.message)
@@ -162,6 +211,18 @@ export default function NoticesPage() {
         .update({ is_pinned: !notice.is_pinned })
         .eq('id', notice.id)
       toast.success(notice.is_pinned ? 'Unpinned' : 'Pinned!')
+
+      // ✅ AUDIT: Log pin toggle
+      await logAuditEvent({
+        userEmail: user?.primaryEmailAddress?.emailAddress || 'unknown@admin.com',
+        userRole: 'admin',
+        action: notice.is_pinned ? 'unpin_notice' : 'pin_notice',
+        description: `${notice.is_pinned ? 'Unpinned' : 'Pinned'} notice "${notice.title}"`,
+        entityType: 'notice',
+        entityId: notice.id,
+        severity: 'LOW',
+      })
+
       fetchNotices()
     } catch (error: any) {
       toast.error('Failed: ' + error.message)

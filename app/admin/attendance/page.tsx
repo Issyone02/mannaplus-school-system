@@ -7,7 +7,8 @@ import { Calendar, Download, Search, Save, CheckCircle, XCircle, Clock, AlertCir
 import toast, { Toaster } from 'react-hot-toast'
 import StudentAttendanceSummary from '@/components/StudentAttendanceSummary'
 import OTPVerificationModal from '@/components/OTPVerificationModal'
-import { auditActions } from '@/lib/auditLog'
+import { auditActions, logAuditEvent } from '@/lib/auditLog'
+import { sendNotification } from '@/lib/notifications'
 
 interface ClassItem {
   id: string
@@ -206,8 +207,28 @@ export default function AttendancePage() {
 
         if (isUnlocked && record.is_locked) {
           await auditActions.adminModifyAttendance(adminEmail, record.student_id, record.date, record.status, 'OTP_OVERRIDE')
+          
+          // ✅ TRIGGER: Alert Admin
+          const student = students.find(s => s.id === record.student_id)
+          await sendNotification({
+            role: 'admin',
+            title: 'Attendance Override',
+            message: `Attendance for ${student?.full_name || 'a student'} on ${record.date} was modified via OTP.`,
+            type: 'warning',
+            link: '/admin/attendance'
+          })
         }
       }
+
+      // ✅ AUDIT: Log normal attendance saves by admin
+      await logAuditEvent({
+        userEmail: adminEmail,
+        userRole: 'admin',
+        action: 'mark_attendance',
+        description: `Marked attendance for ${recordsToSave.length} students in ${selectedClass.toUpperCase()} on ${selectedDate}`,
+        entityType: 'attendance',
+        metadata: { classId: selectedClass, date: selectedDate, studentCount: recordsToSave.length },
+      })
 
       toast.success(`${recordsToSave.length} attendance records saved!`)
       

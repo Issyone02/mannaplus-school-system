@@ -1,5 +1,6 @@
 'use client'
 
+import { useAuth } from '@clerk/nextjs'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { MailOpen, Trash2, RefreshCw, Phone, Tag } from 'lucide-react'
@@ -8,22 +9,48 @@ import toast, { Toaster } from 'react-hot-toast'
 export default function EnquiriesPage() {
   const [enquiries, setEnquiries] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const { getToken } = useAuth()
 
   const fetchEnquiries = async () => {
     setLoading(true)
+    // ✅ Use regular supabase for reading (RLS allows authenticated users to read)
     const { data, error } = await supabase.from('contact_enquiries').select('*').order('created_at', { ascending: false })
-    if (error) toast.error('Failed to load enquiries')
-    else setEnquiries(data || [])
+    if (error) {
+      console.error('Fetch error:', error)
+      toast.error('Failed to load enquiries')
+    } else {
+      setEnquiries(data || [])
+    }
     setLoading(false)
   }
 
   useEffect(() => { fetchEnquiries() }, [])
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this enquiry?')) return
-    const { error } = await supabase.from('contact_enquiries').delete().eq('id', id)
-    if (error) toast.error('Failed to delete')
-    else { toast.success('Enquiry deleted'); fetchEnquiries() }
+      const handleDelete = async (id: string) => {
+    if (!confirm('Delete this enquiry permanently?')) return
+    
+    try {
+      // ✅ Get the Clerk session token and send it explicitly
+      const token = await getToken()
+      
+      const response = await fetch(`/api/admin/enquiries/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`, // ✅ Explicit auth header
+        },
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to delete')
+      }
+
+      toast.success('Enquiry deleted!')
+      fetchEnquiries()
+    } catch (error: any) {
+      console.error('Delete error:', error)
+      toast.error('Failed to delete: ' + error.message)
+    }
   }
 
   return (
@@ -57,7 +84,9 @@ export default function EnquiriesPage() {
                   <p className="text-xs md:text-sm text-gray-600 break-all">{e.email}</p>
                   {e.phone && <p className="text-xs md:text-sm text-gray-600 flex items-center gap-1 mt-1"><Phone size={12} /> {e.phone}</p>}
                 </div>
-                <button onClick={() => handleDelete(e.id)} className="text-red-600 hover:text-red-800 flex-shrink-0" title="Delete"><Trash2 size={16} /></button>
+                <button onClick={() => handleDelete(e.id)} className="text-red-600 hover:text-red-800 flex-shrink-0 p-2 hover:bg-red-50 rounded" title="Delete">
+                  <Trash2 size={16} />
+                </button>
               </div>
               <span className="inline-block px-3 py-1 bg-green-100 text-green-800 text-xs font-bold rounded-full mb-3">
                 <Tag size={10} className="inline mr-1" />{e.enquiry_type || 'General'}

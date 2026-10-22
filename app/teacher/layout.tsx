@@ -60,7 +60,7 @@ export default function TeacherLayout({ children }: { children: React.ReactNode}
           <Menu size={24} />
         </button>
         <h1 className="font-bold text-lg">Teacher Portal</h1>
-        <NotificationBell />
+        <NotificationBell light />
         <UserButton />
       </div>
 

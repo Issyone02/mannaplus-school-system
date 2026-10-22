@@ -4,7 +4,9 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Menu, X } from 'lucide-react';
-import { SignInButton, SignUpButton, UserButton, useUser } from '@clerk/nextjs';
+import { SignInButton, SignUpButton, useUser } from '@clerk/nextjs';
+import { UserButton } from '@clerk/nextjs'
+import NotificationBell from '@/components/NotificationBell' // ✅ ADD THIS LINE
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -77,11 +79,10 @@ export default function Navbar() {
               </Link>
             ))}
 
-                        {/* Auth Controls */}
+              {/* Auth Controls */}
             <div className="flex items-center space-x-4 ml-4 border-l border-gray-200 pl-4">
               {isSignedIn ? (
                 <>
-                  {/* ✅ Hide Dashboard button if inside a portal */}
                   {!isInsidePortal && (
                     <Link
                       href="/dashboard"
@@ -94,6 +95,7 @@ export default function Navbar() {
                       Dashboard
                     </Link>
                   )}
+                  <NotificationBell /> {/* ✅ ADD THIS LINE */}
                   <UserButton />
                 </>
               ) : (
@@ -141,10 +143,9 @@ export default function Navbar() {
               </Link>
             ))}
 
-            <div className="border-t border-gray-200 pt-3 mt-3">
+                        <div className="border-t border-gray-200 pt-3 mt-3">
               {isSignedIn ? (
                 <>
-                  {/* ✅ Hide Dashboard button if inside a portal */}
                   {!isInsidePortal && (
                     <Link
                       href="/dashboard"
@@ -158,7 +159,8 @@ export default function Navbar() {
                       Dashboard
                     </Link>
                   )}
-                  <div className="px-3 py-2">
+                  <div className="px-3 py-2 flex items-center justify-between">
+                    <NotificationBell /> {/* ✅ ADD THIS LINE */}
                     <UserButton />
                   </div>
                 </>

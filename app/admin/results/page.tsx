@@ -9,6 +9,9 @@ import ReportCardEditor from '@/components/ReportCardEditor'
 import { calculateClassPositions } from '@/lib/classPositions'
 import { getSchoolAssets, getClassTeacherSignature } from '@/lib/schoolAssets'
 import { enrichResultsWithPreviousTerms } from '@/lib/reportCardData'
+import { sendNotification } from '@/lib/notifications'
+import { logAuditEvent, auditActions } from '@/lib/auditLog'
+import { useUser } from '@clerk/nextjs'
 
 interface Subject { id: string; name: string; code: string; class_id: string; department: string | null; category: string; term: string; session: string; active: boolean }
 interface Result { id: string; student_id: string; student_name: string; admission_number: string; subject_id: string; subject_name: string; class_id: string; department: string | null; term: string; session: string; ca_score: number; exam_score: number; total_score: number; grade: string; remark: string; first_term_total?: number; second_term_total?: number; teacher_comment?: string; principal_comment?: string }
@@ -16,6 +19,7 @@ interface Student { id: string; full_name: string; admission_number: string; cla
 interface ClassItem { id: string; class_name: string; arm: string | null; department: string | null; class_level: string }
 
 export default function ResultsPage() {
+  const { user } = useUser()
   const [activeTab, setActiveTab] = useState<'bulk-results' | 'view' | 'subjects' | 'bulk-subjects'>('bulk-results')
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [results, setResults] = useState<Result[]>([])
@@ -310,15 +314,29 @@ export default function ResultsPage() {
     e.preventDefault()
     try {
       const payload = { ...subjectForm, department: subjectForm.category === 'Core' ? null : subjectForm.department || null }
+      const adminEmail = user?.primaryEmailAddress?.emailAddress || 'unknown@admin.com'
       if (editingItem) {
         await supabase.from('subjects').update(payload).eq('id', editingItem.id)
         toast.success('Subject updated!')
+
+        // ✅ AUDIT: Log subject update
+        await logAuditEvent({
+          userEmail: adminEmail,
+          userRole: 'admin',
+          action: 'update_subject',
+          description: `Updated subject "${payload.name}"`,
+          entityType: 'subject',
+          entityId: editingItem.id,
+        })
       } else {
         // ✅ Insert and get the new ID back
         const { data, error } = await supabase.from('subjects').insert([payload]).select().single()
         if (error) throw error
         
         toast.success('Subject added!')
+
+        // ✅ AUDIT: Log subject creation
+        await auditActions.adminCreateSubject(adminEmail, payload.name, payload.class_id)
         
         // ✅ Automatically sync this new subject to all students in the class
         if (data && data.id) {
@@ -354,12 +372,55 @@ export default function ResultsPage() {
         student_id: resultForm.student_id, subject_id: resultForm.subject_id, class_id: selectedClass,
         term: selectedTerm, session: selectedSession, ca_score: ca, exam_score: exam, total_score: total, grade, remark, marked_by: 'admin'
       }
+      const adminEmail = user?.primaryEmailAddress?.emailAddress || 'unknown@admin.com'
+      const student = students.find(s => s.id === resultForm.student_id)
+      const subject = subjects.find(s => s.id === resultForm.subject_id)
+
       if (editingItem) {
         await supabase.from('results').update(payload).eq('id', editingItem.id)
         toast.success('Result updated!')
+
+        // ✅ AUDIT: Log result update
+        await logAuditEvent({
+          userEmail: adminEmail,
+          userRole: 'admin',
+          action: 'update_result',
+          description: `Updated result for ${student?.full_name || 'a student'} in ${subject?.name || 'a subject'} (${selectedTerm} ${selectedSession})`,
+          entityType: 'result',
+          entityId: editingItem.id,
+          metadata: { ca_score: ca, exam_score: exam, total_score: total, grade },
+        })
       } else {
         await supabase.from('results').insert([payload])
         toast.success('Result entered!')
+
+        // ✅ AUDIT: Log result entry
+        await logAuditEvent({
+          userEmail: adminEmail,
+          userRole: 'admin',
+          action: 'enter_results',
+          description: `Entered result for ${student?.full_name || 'a student'} in ${subject?.name || 'a subject'} (${selectedTerm} ${selectedSession}): ${total}% (${grade})`,
+          entityType: 'result',
+          metadata: { studentId: resultForm.student_id, subjectId: resultForm.subject_id, total_score: total, grade },
+        })
+
+        // ✅ TRIGGER: Notify Student & Parent
+        if (student) {
+          await sendNotification({
+            role: 'student',
+            title: 'New Result Posted',
+            message: `Your result for ${subject?.name || 'a subject'} has been posted.`,
+            type: 'success',
+            link: '/student/results'
+          })
+          await sendNotification({
+            role: 'parent',
+            title: 'Child Result Posted',
+            message: `A new result has been posted for ${student.full_name}.`,
+            type: 'success',
+            link: '/parent'
+          })
+        }
       }
       setShowModal(false)
       setResultForm({ student_id: '', subject_id: '', ca_score: '', exam_score: '' })
@@ -370,15 +431,41 @@ export default function ResultsPage() {
 
   const handleDeleteSubject = async (id: string) => {
     if (!confirm('Delete?')) return
+    const subjectToDelete = subjects.find(s => s.id === id)
     await supabase.from('subjects').delete().eq('id', id)
     toast.success('Deleted!')
+
+    // ✅ AUDIT: Log subject deletion
+    await logAuditEvent({
+      userEmail: user?.primaryEmailAddress?.emailAddress || 'unknown@admin.com',
+      userRole: 'admin',
+      action: 'delete_subject',
+      description: `Deleted subject "${subjectToDelete?.name || id}"`,
+      entityType: 'subject',
+      entityId: id,
+      severity: 'HIGH',
+    })
+
     fetchSubjects()
   }
 
   const handleDeleteResult = async (id: string) => {
     if (!confirm('Delete?')) return
+    const resultToDelete = results.find(r => r.id === id)
     await supabase.from('results').delete().eq('id', id)
     toast.success('Deleted!')
+
+    // ✅ AUDIT: Log result deletion
+    await logAuditEvent({
+      userEmail: user?.primaryEmailAddress?.emailAddress || 'unknown@admin.com',
+      userRole: 'admin',
+      action: 'delete_result',
+      description: `Deleted result for ${resultToDelete?.student_name || 'a student'} in ${resultToDelete?.subject_name || 'a subject'}`,
+      entityType: 'result',
+      entityId: id,
+      severity: 'HIGH',
+    })
+
     fetchResults()
   }
 
@@ -466,6 +553,14 @@ export default function ResultsPage() {
         }
         if (errors.length > 0) toast.error(`Upload finished with ${failed} errors. Check console.`)
         else toast.success(`Successfully processed! Saved: ${saved}, Updated: ${updated}`)
+
+        // ✅ AUDIT: Log bulk result upload
+        await auditActions.adminBulkUpload(
+          user?.primaryEmailAddress?.emailAddress || 'unknown@admin.com',
+          'results',
+          saved
+        )
+
         await fetchResults()
         setTimeout(() => setActiveTab('view'), 1000)
       } catch (error: any) { toast.error('Failed to process file: ' + error.message) }
@@ -528,6 +623,14 @@ export default function ResultsPage() {
         if (error) throw error
 
         toast.success(`${newSubjects.length} subjects added/updated!`)
+
+        // ✅ AUDIT: Log bulk subject upload
+        await auditActions.adminBulkUpload(
+          user?.primaryEmailAddress?.emailAddress || 'unknown@admin.com',
+          'subjects',
+          newSubjects.length
+        )
+
         await fetchSubjects()
 
         // ✅ Automatically push them onto every student's report card with 0 scores

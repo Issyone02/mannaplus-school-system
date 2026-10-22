@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { MapPin, Phone, Mail, Clock, Send, CheckCircle2, ArrowRight, MessageSquare } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
+import { sendNotification } from '@/lib/notifications'
 
 const enquiryTypes = ['Admissions & Enrollment', 'Fees & Payments', 'Academics & Curriculum', 'Partnerships & Other']
 
@@ -30,6 +31,18 @@ export default function ContactPage() {
     try {
       const { error } = await supabase.from('contact_enquiries').insert([{ ...form }])
       if (error) throw error
+      
+      // ✅ TRIGGER: Notify Admin of new enquiry
+      console.log('🔔 Attempting to send notification...')
+      const notifResult = await sendNotification({
+        role: 'admin',
+        title: 'New Enquiry Received',
+        message: `${form.full_name} sent a message regarding ${form.enquiry_type}.`,
+        type: 'info',
+        link: '/admin/enquiries'
+      })
+      console.log('🔔 Notification result:', notifResult)
+
       setSubmitted(true)
       toast.success('Enquiry sent successfully!')
     } catch (err: any) {

@@ -67,7 +67,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <Menu size={24} />
         </button>
         <h1 className="font-bold text-lg">Admin Portal</h1>
-        <NotificationBell />
+        <NotificationBell light />
         <UserButton />
       </div>
 

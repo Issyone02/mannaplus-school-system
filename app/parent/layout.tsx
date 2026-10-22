@@ -79,7 +79,7 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
           <Menu size={24} />
         </button>
         <h1 className="font-bold text-lg">Parent Portal</h1>
-        <NotificationBell />
+        <NotificationBell light />
         <UserButton />
       </div>
 

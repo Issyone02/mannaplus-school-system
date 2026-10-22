@@ -14,7 +14,7 @@ interface Notification {
   created_at: string
 }
 
-export default function NotificationBell() {
+export default function NotificationBell({ light = false }: { light?: boolean }) {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [isOpen, setIsOpen] = useState(false)
@@ -22,27 +22,33 @@ export default function NotificationBell() {
   const dropdownRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
 
+  // ✅ Fetch notifications with cache-busting
   const fetchNotifications = async () => {
     try {
-      const res = await fetch('/api/notifications')
+      const res = await fetch('/api/notifications?_=' + Date.now()) // Cache-bust
       if (res.ok) {
         const data = await res.json()
         setNotifications(data.notifications || [])
         setUnreadCount(data.unreadCount || 0)
+        console.log(`🔔 Bell updated: ${data.unreadCount} unread`)
+      } else {
+        console.error('Failed to fetch notifications:', res.status)
       }
     } catch (error) {
-      console.error('Failed to fetch notifications:', error)
+      console.error('Notification fetch error:', error)
     } finally {
       setLoading(false)
     }
   }
 
+  // ✅ Initial fetch + polling every 15 seconds (faster than 30s)
   useEffect(() => {
     fetchNotifications()
-    const interval = setInterval(fetchNotifications, 30000)
+    const interval = setInterval(fetchNotifications, 15000) // Poll every 15s
     return () => clearInterval(interval)
   }, [])
 
+  // ✅ Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -53,40 +59,59 @@ export default function NotificationBell() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  // ✅ Mark as read AND re-fetch to update count
   const handleNotificationClick = async (notification: Notification) => {
     if (!notification.is_read) {
-      await fetch('/api/notifications', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: notification.id }),
-      })
-      setUnreadCount(prev => Math.max(0, prev - 1))
-      setNotifications(prev => 
-        prev.map(n => n.id === notification.id ? { ...n, is_read: true } : n)
-      )
+      try {
+        await fetch('/api/notifications', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: notification.id }),
+        })
+        
+        // ✅ Immediately update local state
+        setUnreadCount(prev => Math.max(0, prev - 1))
+        setNotifications(prev => 
+          prev.map(n => n.id === notification.id ? { ...n, is_read: true } : n)
+        )
+      } catch (error) {
+        console.error('Failed to mark as read:', error)
+      }
     }
+
+    // Navigate if link exists
     if (notification.link) {
       router.push(notification.link)
     }
+    
     setIsOpen(false)
   }
 
+  // ✅ Mark all as read AND re-fetch
   const markAllAsRead = async () => {
     const unreadIds = notifications.filter(n => !n.is_read).map(n => n.id)
     if (unreadIds.length === 0) return
 
-    await Promise.all(
-      unreadIds.map(id => 
-        fetch('/api/notifications', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id }),
-        })
+    try {
+      await Promise.all(
+        unreadIds.map(id => 
+          fetch('/api/notifications', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id }),
+          })
+        )
       )
-    )
-    
-    setUnreadCount(0)
-    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
+      
+      // ✅ Immediately update local state
+      setUnreadCount(0)
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
+      
+      // ✅ Re-fetch to sync with server
+      await fetchNotifications()
+    } catch (error) {
+      console.error('Failed to mark all as read:', error)
+    }
   }
 
   const getTimeAgo = (dateString: string) => {
@@ -113,12 +138,16 @@ export default function NotificationBell() {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"
+        className={`relative p-2 rounded-full transition-colors ${
+          light 
+            ? 'text-white hover:bg-white/10' 
+            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+        }`}
         aria-label="Notifications"
       >
         <Bell size={20} />
         {unreadCount > 0 && (
-          <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-white">
+          <span className="absolute top-0 right-0 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-white animate-pulse">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}

@@ -60,3 +60,5 @@ Thumbs.db
 # Production artifacts
 /build/
 /out/
+# clerk configuration (can include secrets)
+/.clerk/

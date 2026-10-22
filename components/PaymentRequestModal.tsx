@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { X } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { sendNotification } from '@/lib/notifications'
 
 interface Props {
   isOpen: boolean
@@ -53,6 +54,15 @@ export default function PaymentRequestModal({ isOpen, onClose, student, balance,
       }])
 
       if (error) throw error
+
+      // ✅ TRIGGER: Notify Admin of new payment request
+      await sendNotification({
+        role: 'admin',
+        title: 'New Payment Request',
+        message: `${student.full_name} submitted a payment request of ₦${numAmount.toLocaleString()}.`,
+        type: 'info',
+        link: '/admin/fees'
+      })
 
       toast.success('✅ Payment request submitted — admin will review.')
       setAmount(''); setMethod('Transfer'); setReference(''); setDescription('')
