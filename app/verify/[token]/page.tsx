@@ -10,12 +10,14 @@ export default async function VerifyDocumentPage({
 }) {
   const { token } = await params
 
-  // ✅ Server-side lookup with admin client (bypasses RLS on joined tables)
-  const { data: doc } = await supabaseAdmin
+  // ✅ Simple lookup — no embedded joins (avoids FK/embed errors)
+  const { data: doc, error: docError } = await supabaseAdmin
     .from('document_verifications')
-    .select('*, student:students(full_name, admission_number, class:classes(class_name, arm, department))')
+    .select('*')
     .eq('token', token)
     .maybeSingle()
+
+  if (docError) console.error('Verify lookup error:', docError)
 
   const expired = doc?.expires_at ? new Date(doc.expires_at) < new Date() : false
   const verified = !!doc && !expired
@@ -47,9 +49,29 @@ export default async function VerifyDocumentPage({
     )
   }
 
-  const student = doc.student as any
-  const cls = student?.class as any
-  const metadata = (doc.metadata || {}) as Record<string, any>
+  // ✅ Fetch student and class with separate simple queries
+  let student: any = null
+  let cls: any = null
+
+  if (doc?.student_id) {
+    const { data: s } = await supabaseAdmin
+      .from('students')
+      .select('id, full_name, admission_number, class_id')
+      .eq('id', doc.student_id)
+      .maybeSingle()
+    student = s || null
+
+    if (student?.class_id) {
+      const { data: c } = await supabaseAdmin
+        .from('classes')
+        .select('class_name, arm, department')
+        .eq('id', student.class_id)
+        .maybeSingle()
+      cls = c || null
+    }
+  }
+
+  const metadata = (doc?.metadata || {}) as Record<string, any>
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
