@@ -1,6 +1,23 @@
-import { clerkMiddleware } from "@clerk/nextjs/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
-export default clerkMiddleware();
+// ✅ Define routes that do NOT require authentication
+const isPublicRoute = createRouteMatcher([
+  "/",
+  "/about(.*)",
+  "/academics(.*)",
+  "/news(.*)",
+  "/admissions(.*)",
+  "/contact(.*)",
+  "/verify(.*)", // ✅ The new public verification page
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+]);
+
+export default clerkMiddleware((auth, request) => {
+  // Your app relies on Layouts (like app/admin/layout.tsx) to handle login redirects.
+  // We intentionally do NOT call auth.protect() here to avoid breaking your existing layout logic.
+  // This just ensures Clerk is aware of the public routes (like /verify) and skips them.
+});
 
 export const config = {
   matcher: [

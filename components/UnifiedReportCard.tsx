@@ -1,9 +1,19 @@
 'use client'
 
 import { Printer } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
+import QRCode from 'qrcode'
+import { generateVerificationToken } from '@/lib/documentVerification'
 
 interface UnifiedReportCardProps {
-  student: { full_name: string; admission_number: string; class_name: string; position?: string | number; no_in_class?: string | number }
+  student: {
+    id?: string
+    full_name: string
+    admission_number: string
+    class_name: string
+    position?: string | number
+    no_in_class?: string | number
+  }
   results: any[]
   session: string
   term: string
@@ -15,7 +25,7 @@ interface UnifiedReportCardProps {
   principalComment?: string
   className?: string
   teacherSignatureUrl?: string | null
-  principalSignatureUrl?: string |null
+  principalSignatureUrl?: string | null
   stampUrl?: string | null
   teacherDate?: string | null
   headTeacherDate?: string | null
@@ -25,27 +35,55 @@ const CONDUCT = ['Attentiveness', 'Cleanliness', 'Emotional Balance', 'Honesty',
 const PHYSICAL = ['Handwriting', 'Verbal Fluency', 'Debate/Quiz', 'Sports', 'Drawing & Painting', 'Musical Skills', 'Handling Tools']
 
 export default function UnifiedReportCard(props: UnifiedReportCardProps) {
-  
   const { student, results, session, term, className = '' } = props
 
-  // ✅ Defensively handle undefined/empty term during initial render
   const safeTerm = (term || '').toLowerCase()
   const termNum = safeTerm.includes('first') ? '1ST' : safeTerm.includes('second') ? '2ND' : '3RD'
-
-  // ✅ TERM-AWARE COLUMNS:
-  // 1st Term card  → CA, Exam, Total, Position, Remarks ONLY
-  // 2nd Term card  → + First Term column
-  // 3rd Term card  → + First Term + Second Term columns
   const showFirstTermCol = !safeTerm.includes('first')
   const showSecondTermCol = safeTerm.includes('third')
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     if (results.length === 0) return
 
     const isPrimary = student.class_name.toLowerCase().includes('primary') || student.class_name.toLowerCase().includes('nursery')
     const logoToUse = isPrimary
       ? "https://mecvtpnqmffqvniioudk.supabase.co/storage/v1/object/public/school-assets/logo_primary.png"
       : "https://mecvtpnqmffqvniioudk.supabase.co/storage/v1/object/public/school-assets/logo_secondary.png"
+
+    // ✅ Resolve student id (from prop, or look up by admission number)
+    let studentId = student.id
+    if (!studentId) {
+      const { data: s } = await supabase
+        .from('students')
+        .select('id')
+        .eq('admission_number', student.admission_number)
+        .maybeSingle()
+      studentId = s?.id || undefined
+    }
+
+    // ✅ Generate stable verification token + QR image for the printed document
+    let qrDataUrl = ''
+    if (studentId) {
+      try {
+        const token = await generateVerificationToken({
+          document_type: 'report_card',
+          student_id: studentId,
+          term,
+          session,
+          metadata: {
+            admission_number: student.admission_number,
+            class_name: student.class_name,
+            position: student.position || null,
+          },
+        })
+        qrDataUrl = await QRCode.toDataURL(
+          `https://my-school-management-system.vercel.app/verify/${token}`,
+          { width: 300, margin: 1 }
+        )
+      } catch (e) {
+        console.error('Verification QR failed:', e)
+      }
+    }
 
     let grandTotal = 0
     results.forEach(r => { grandTotal += (r.ca_score || 0) + (r.exam_score || 0) })
@@ -56,7 +94,6 @@ export default function UnifiedReportCard(props: UnifiedReportCardProps) {
     const overallGrade = getGrade(parseFloat(overallPct))
     const passed = parseFloat(overallPct) >= 40
 
-    // Subject rows (columns adapt to the term)
     let subjectsHtml = ''
     results.forEach((r, i) => {
       const ca = r.ca_score || 0, ex = r.exam_score || 0, tot = ca + ex
@@ -74,7 +111,6 @@ export default function UnifiedReportCard(props: UnifiedReportCardProps) {
       </tr>`
     })
 
-    // Rating tables helper
     const ratingRows = (items: string[], ratings?: Record<string, string>) => items.map(item => {
       const v = ratings?.[item] || 'Good'
       return `<tr>
@@ -135,6 +171,10 @@ export default function UnifiedReportCard(props: UnifiedReportCardProps) {
     color: #16a34a; font-weight: bold; font-size: 8px; text-align: center; 
     transform: rotate(-15deg); opacity: 0.85; margin: 0 auto; 
   }
+  .qr-wrap { display: flex; justify-content: flex-end; margin-top: 10px; }
+  .qr-box { text-align: center; border: 1.5px solid #16a34a; padding: 4px 6px; border-radius: 6px; }
+  .qr-box img { width: 92px; height: 92px; display: block; margin: 0 auto; }
+  .qr-label { font-size: 7.5px; margin-top: 2px; color: #16a34a; }
 </style>
 </head>
 <body>
@@ -254,6 +294,14 @@ export default function UnifiedReportCard(props: UnifiedReportCardProps) {
       <div class="sig-line">Head Teacher's Signature</div>Date: ${props.headTeacherDate ? new Date(props.headTeacherDate).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'}) : '______________'}
     </div>
   </div>
+
+  ${qrDataUrl ? `
+  <div class="qr-wrap">
+    <div class="qr-box">
+      <img src="${qrDataUrl}" alt="Verification QR Code"/>
+      <div class="qr-label">SCAN TO VERIFY AUTHENTICITY</div>
+    </div>
+  </div>` : ''}
 
   <script>window.onload = function() { setTimeout(() => window.print(), 250); }</script>
 </body>
