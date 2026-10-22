@@ -1,8 +1,8 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, NextRequest } from 'next/server' // ✅ Added NextRequest
 import { getAuth } from '@clerk/nextjs/server'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) { // ✅ Changed Request to NextRequest
   // ✅ Disable caching for real-time updates
   const headers = new Headers()
   headers.set('Cache-Control', 'no-store, max-age=0, must-revalidate')
@@ -49,7 +49,6 @@ export async function GET(request: Request) {
 
     const unreadCount = uniqueNotifications.filter(n => !n.is_read).length
 
-    // ✅ Attach headers to prevent browser caching
     return NextResponse.json({ notifications: uniqueNotifications, unreadCount }, { headers })
   } catch (error: any) {
     console.error('Notifications API error:', error)
@@ -57,7 +56,7 @@ export async function GET(request: Request) {
   }
 }
 
-export async function PATCH(request: Request) {
+export async function PATCH(request: NextRequest) { // ✅ Changed Request to NextRequest
   try {
     const { userId } = getAuth(request)
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
