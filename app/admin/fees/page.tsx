@@ -1,9 +1,12 @@
 'use client'
 
+
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Plus, Search, DollarSign, FileText, Download, Eye, Edit, Trash2, X, CheckCircle, TrendingUp, TrendingDown } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
+import QRCode from 'qrcode' //
+import { generateVerificationToken } from '@/lib/documentVerification'
 
 interface FeeStructure {
   id: string
@@ -390,13 +393,36 @@ export default function FeeManagementPage() {
     } catch (error: any) { toast.error('Failed: ' + error.message) }
   }
 
-  const handlePrint = () => {
-    const content = document.getElementById('receipt-content')
-    if (!content) return
+  const handlePrint = async () => {
+    if (!selectedReceipt) return
     
-    const printWindow = window.open('', '_blank', 'width=800,height=600')
+    // ✅ Generate verification token for this receipt
+    let qrDataUrl = ''
+    try {
+      const token = await generateVerificationToken({
+        document_type: 'receipt',
+        student_id: selectedReceipt.student_id,
+        term: 'Payment', // Receipts aren't term-specific
+        session: new Date().getFullYear().toString(),
+        metadata: {
+          receipt_number: selectedReceipt.receipt_number,
+          amount_paid: selectedReceipt.amount_paid,
+          payment_method: selectedReceipt.payment_method,
+          reference_number: selectedReceipt.reference_number || 'N/A',
+          payment_date: selectedReceipt.payment_date || selectedReceipt.created_at,
+        },
+      })
+      qrDataUrl = await QRCode.toDataURL(
+        `https://my-school-management-system.vercel.app/verify/${token}`,
+        { width: 300, margin: 1 }
+      )
+    } catch (error) {
+      console.error('Failed to generate receipt QR:', error)
+    }
+
+    const printWindow = window.open('', '_blank', 'width=800,height=700')
     if (!printWindow) {
-      window.print()
+      alert('Please allow popups to print receipts')
       return
     }
     
@@ -404,27 +430,48 @@ export default function FeeManagementPage() {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Receipt - ${selectedReceipt?.receipt_number}</title>
+        <title>Receipt - ${selectedReceipt.receipt_number}</title>
         <style>
           body { font-family: Arial, sans-serif; padding: 40px; color: #000; background: #fff; }
-          h3 { text-align: center; margin-bottom: 20px; }
+          h3 { text-align: center; margin-bottom: 5px; font-size: 18px; }
+          .subtitle { text-align: center; color: #666; margin-bottom: 20px; font-size: 12px; }
           .row { display: flex; justify-content: space-between; margin: 12px 0; padding-bottom: 8px; border-bottom: 1px solid #ccc; }
-          .label { color: #555; }
-          .value { font-weight: bold; color: #000; }
-          .amount { color: #22c55e; }
+          .label { color: #555; font-size: 13px; }
+          .value { font-weight: bold; color: #000; font-size: 13px; }
+          .amount { color: #22c55e; font-size: 16px; }
+          .footer { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 40px; border-top: 2px solid #22c55e; padding-top: 20px; }
+          .signature-box { text-align: center; font-size: 11px; }
+          .signature-line { border-top: 1px solid #000; padding-top: 5px; width: 150px; margin-top: 30px; }
+          .qr-box { text-align: center; border: 2px solid #22c55e; padding: 6px; border-radius: 8px; }
+          .qr-box img { width: 100px; height: 100px; display: block; margin: 0 auto; }
+          .qr-label { font-size: 8px; margin-top: 4px; color: #22c55e; font-weight: bold; }
         </style>
       </head>
       <body>
         <h3>Mannaplus Group of Schools</h3>
-        <p style="text-align:center;color:#666">Payment Receipt</p>
-        <div class="row"><span class="label">Receipt:</span><span class="value">${selectedReceipt?.receipt_number}</span></div>
-        <div class="row"><span class="label">Student:</span><span class="value">${selectedReceipt?.student_name}</span></div>
-        <div class="row"><span class="label">Admission:</span><span class="value">${selectedReceipt?.admission_number}</span></div>
-        <div class="row"><span class="label">Amount:</span><span class="value amount">₦${selectedReceipt?.amount_paid.toLocaleString()}</span></div>
-        <div class="row"><span class="label">Date & Time:</span><span class="value">${new Date(selectedReceipt?.created_at || selectedReceipt?.payment_date || '').toLocaleString()}</span></div>
-        <div class="row"><span class="label">Method:</span><span class="value">${selectedReceipt?.payment_method}</span></div>
-        <div class="row"><span class="label">Paid By:</span><span class="value">${selectedReceipt?.paid_by}</span></div>
-        <script>window.onload = function() { window.print(); window.close(); }</script>
+        <p class="subtitle">Official Payment Receipt</p>
+        
+        <div class="row"><span class="label">Receipt Number:</span><span class="value">${selectedReceipt.receipt_number}</span></div>
+        <div class="row"><span class="label">Student Name:</span><span class="value">${selectedReceipt.student_name}</span></div>
+        <div class="row"><span class="label">Admission Number:</span><span class="value">${selectedReceipt.admission_number}</span></div>
+        <div class="row"><span class="label">Amount Paid:</span><span class="value amount">₦${selectedReceipt.amount_paid.toLocaleString()}</span></div>
+        <div class="row"><span class="label">Payment Date:</span><span class="value">${new Date(selectedReceipt.payment_date || selectedReceipt.created_at || '').toLocaleDateString()}</span></div>
+        <div class="row"><span class="label">Payment Method:</span><span class="value">${selectedReceipt.payment_method}</span></div>
+        <div class="row"><span class="label">Reference Number:</span><span class="value">${selectedReceipt.reference_number || 'N/A'}</span></div>
+        <div class="row"><span class="label">Paid By:</span><span class="value">${selectedReceipt.paid_by || 'Parent/Guardian'}</span></div>
+        
+        <div class="footer">
+          <div class="signature-box">
+            <div class="signature-line">Authorized Signature</div>
+          </div>
+          ${qrDataUrl ? `
+          <div class="qr-box">
+            <img src="${qrDataUrl}" alt="Verification QR Code"/>
+            <div class="qr-label">SCAN TO VERIFY AUTHENTICITY</div>
+          </div>` : ''}
+        </div>
+        
+        <script>window.onload = function() { setTimeout(() => window.print(), 250); }</script>
       </body>
       </html>
     `)

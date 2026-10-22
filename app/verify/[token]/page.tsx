@@ -148,12 +148,14 @@ export default async function VerifyDocumentPage({
               <div className="mt-6 pt-6 border-t">
                 <h4 className="text-sm font-bold text-gray-700 mb-3">Recorded at Issue Time</h4>
                 <div className="bg-gray-50 rounded-lg p-4 space-y-1">
-                  {metadata.position != null && (
-                    <p className="text-sm text-gray-700"><strong>Position:</strong> {String(metadata.position)}</p>
-                  )}
-                  {metadata.class_name && (
-                    <p className="text-sm text-gray-700"><strong>Class on document:</strong> {String(metadata.class_name)}</p>
-                  )}
+                  <p className="text-sm text-gray-700">
+                    <strong>Document type:</strong> {String(doc.document_type).replace(/_/g, ' ')}
+                  </p>
+                  {Object.entries(metadata).map(([key, value]) => (
+                    <p key={key} className="text-sm text-gray-700">
+                      <strong className="capitalize">{key.replace(/_/g, ' ')}:</strong> {String(value)}
+                    </p>
+                  ))}
                   <p className="text-xs text-gray-500 mt-2">
                     Document issued: {new Date(doc.created_at).toLocaleString()}
                   </p>
