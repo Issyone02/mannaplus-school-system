@@ -379,30 +379,108 @@ export default function FeeManagementPage() {
   }
 
   const saveAsJPG = async () => {
+    if (!selectedReceipt) return
+    
     try {
-      const html2canvas = (await import('html2canvas')).default
-      const element = document.getElementById('receipt-content')
-      if (element) {
-        const canvas = await html2canvas(element, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false })
-        const link = document.createElement('a')
-        link.download = `receipt_${selectedReceipt?.receipt_number}.jpg`
-        link.href = canvas.toDataURL('image/jpeg', 0.9)
-        link.click()
-        toast.success('Receipt saved as JPG!')
+      let qrDataUrl = ''
+      try {
+        const token = await generateVerificationToken({
+          document_type: 'receipt',
+          student_id: selectedReceipt.student_id,
+          term: 'Payment',
+          session: new Date().getFullYear().toString(),
+          metadata: {
+            receipt_number: selectedReceipt.receipt_number,
+            amount_paid: selectedReceipt.amount_paid,
+            payment_method: selectedReceipt.payment_method,
+            reference_number: selectedReceipt.reference_number || 'N/A',
+            payment_date: selectedReceipt.payment_date || selectedReceipt.created_at,
+          },
+        })
+        qrDataUrl = await QRCode.toDataURL(
+          `https://my-school-management-system.vercel.app/verify/${token}`,
+          { width: 300, margin: 1 }
+        )
+      } catch (error) {
+        console.error('Failed to generate receipt QR:', error)
       }
-    } catch (error: any) { toast.error('Failed: ' + error.message) }
+
+      const container = document.createElement('div')
+      container.style.cssText = 'width: 800px; padding: 40px; font-family: Arial, sans-serif; background: white;'
+      container.innerHTML = `
+        <h3 style="text-align: center; margin-bottom: 5px; font-size: 18px;">Mannaplus Group of Schools</h3>
+        <p style="text-align: center; color: #666; margin-bottom: 20px; font-size: 12px;">Official Payment Receipt</p>
+        <div style="display: flex; justify-content: space-between; margin: 12px 0; padding-bottom: 8px; border-bottom: 1px solid #ccc;">
+          <span style="color: #555; font-size: 13px;">Receipt Number:</span>
+          <span style="font-weight: bold; color: #000; font-size: 13px;">${selectedReceipt.receipt_number}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin: 12px 0; padding-bottom: 8px; border-bottom: 1px solid #ccc;">
+          <span style="color: #555; font-size: 13px;">Student Name:</span>
+          <span style="font-weight: bold; color: #000; font-size: 13px;">${selectedReceipt.student_name}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin: 12px 0; padding-bottom: 8px; border-bottom: 1px solid #ccc;">
+          <span style="color: #555; font-size: 13px;">Admission Number:</span>
+          <span style="font-weight: bold; color: #000; font-size: 13px;">${selectedReceipt.admission_number}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin: 12px 0; padding-bottom: 8px; border-bottom: 1px solid #ccc;">
+          <span style="color: #555; font-size: 13px;">Amount Paid:</span>
+          <span style="color: #22c55e; font-size: 16px; font-weight: bold;">₦${selectedReceipt.amount_paid.toLocaleString()}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin: 12px 0; padding-bottom: 8px; border-bottom: 1px solid #ccc;">
+          <span style="color: #555; font-size: 13px;">Payment Date:</span>
+          <span style="font-weight: bold; color: #000; font-size: 13px;">${new Date(selectedReceipt.payment_date || selectedReceipt.created_at || '').toLocaleDateString()}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin: 12px 0; padding-bottom: 8px; border-bottom: 1px solid #ccc;">
+          <span style="color: #555; font-size: 13px;">Payment Method:</span>
+          <span style="font-weight: bold; color: #000; font-size: 13px;">${selectedReceipt.payment_method}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin: 12px 0; padding-bottom: 8px; border-bottom: 1px solid #ccc;">
+          <span style="color: #555; font-size: 13px;">Reference Number:</span>
+          <span style="font-weight: bold; color: #000; font-size: 13px;">${selectedReceipt.reference_number || 'N/A'}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin: 12px 0; padding-bottom: 8px; border-bottom: 1px solid #ccc;">
+          <span style="color: #555; font-size: 13px;">Paid By:</span>
+          <span style="font-weight: bold; color: #000; font-size: 13px;">${selectedReceipt.paid_by || 'Parent/Guardian'}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 40px; border-top: 2px solid #22c55e; padding-top: 20px;">
+          <div style="text-align: center; font-size: 11px;">
+            <div style="border-top: 1px solid #000; padding-top: 5px; width: 150px; margin-top: 30px;">Authorized Signature</div>
+          </div>
+          ${qrDataUrl ? `
+          <div style="text-align: center; border: 2px solid #22c55e; padding: 6px; border-radius: 8px;">
+            <img src="${qrDataUrl}" alt="Verification QR Code" style="width: 100px; height: 100px; display: block; margin: 0 auto;"/>
+            <div style="font-size: 8px; margin-top: 4px; color: #22c55e; font-weight: bold;">SCAN TO VERIFY AUTHENTICITY</div>
+          </div>` : ''}
+        </div>
+      `
+      
+      document.body.appendChild(container)
+      
+      const html2canvas = (await import('html2canvas')).default
+      const canvas = await html2canvas(container, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false })
+      
+      document.body.removeChild(container)
+      
+      const link = document.createElement('a')
+      link.download = `receipt_${selectedReceipt.receipt_number}.jpg`
+      link.href = canvas.toDataURL('image/jpeg', 0.9)
+      link.click()
+      
+      toast.success('Receipt saved as JPG with QR code!')
+    } catch (error: any) { 
+      toast.error('Failed: ' + error.message) 
+    }
   }
 
   const handlePrint = async () => {
     if (!selectedReceipt) return
     
-    // ✅ Generate verification token for this receipt
     let qrDataUrl = ''
     try {
       const token = await generateVerificationToken({
         document_type: 'receipt',
         student_id: selectedReceipt.student_id,
-        term: 'Payment', // Receipts aren't term-specific
+        term: 'Payment',
         session: new Date().getFullYear().toString(),
         metadata: {
           receipt_number: selectedReceipt.receipt_number,
