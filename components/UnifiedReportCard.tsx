@@ -104,7 +104,6 @@ export default function UnifiedReportCard(props: UnifiedReportCardProps) {
         <td style="text-align:center">${ca}</td>
         <td style="text-align:center">${ex}</td>
         <td style="text-align:center;font-weight:bold">${tot}</td>
-        <td style="text-align:center">${r.position || '-'}</td>
         ${showFirstTermCol ? `<td style="text-align:center">${ft}</td>` : ''}
         ${showSecondTermCol ? `<td style="text-align:center">${st}</td>` : ''}
         <td style="text-align:center">${r.remark || (tot >= 40 ? 'Pass' : 'Fail')}</td>
@@ -132,49 +131,49 @@ export default function UnifiedReportCard(props: UnifiedReportCardProps) {
 <head>
 <title>Report Card - ${student.full_name}</title>
 <style>
-  @media print { @page { size: A4; margin: 6mm; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+  @media print { @page { size: A4; margin: 15mm 12mm 6mm 12mm; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
   * { box-sizing: border-box; }
   body { 
     font-family: 'Times New Roman', Arial, serif; 
-    font-size: 10px; 
-    line-height: 1.25; 
+    font-size: 9px; 
+    line-height: 1.15; 
     color: #000; 
     margin: 0; 
-    padding: 4px; 
+    padding: 3px; 
     background: #fff; 
     font-weight: bold;
   }
-  .header { display: flex; align-items: center; gap: 10px; border-bottom: 2px solid #16a34a; padding-bottom: 5px; margin-bottom: 6px; }
-  .logo { width: 80px; height: 80px; object-fit: contain; }
+  .header { display: flex; align-items: center; gap: 8px; border-bottom: 2px solid #16a34a; padding-bottom: 3px; margin-bottom: 3px; }
+  .logo { width: 52px; height: 52px; object-fit: contain; }
   .school-info { flex: 1; text-align: center; }
-  h1 { margin: 0; font-size: 16px; color: #16a34a; text-transform: uppercase; font-weight: bold; }
-  h2 { margin: 1px 0; font-size: 11px; font-style: italic; color: #333; font-weight: bold; }
-  .addr { margin: 1px 0; font-size: 9px; color: #555; font-weight: bold; }
-  .title { text-align: center; font-size: 13px; font-weight: bold; margin: 5px 0; text-transform: uppercase; }
-  .srow { display: flex; justify-content: space-between; font-size: 10px; border-bottom: 1px solid #999; padding-bottom: 3px; margin-bottom: 6px; font-weight: bold; }
+  h1 { margin: 0; font-size: 13px; color: #16a34a; text-transform: uppercase; font-weight: bold; }
+  h2 { margin: 0; font-size: 9.5px; font-style: italic; color: #333; font-weight: bold; }
+  .addr { margin: 0; font-size: 8px; color: #555; font-weight: bold; }
+  .title { text-align: center; font-size: 11px; font-weight: bold; margin: 2px 0; text-transform: uppercase; }
+  .srow { display: flex; justify-content: space-between; font-size: 9px; border-bottom: 1px solid #999; padding-bottom: 1px; margin-bottom: 2px; font-weight: bold; }
   .srow span { flex: 1; }
-  .sec { font-weight: bold; font-size: 11px; margin: 6px 0 3px 0; }
-  table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
-  th, td { border: 1px solid #000; padding: 3px 4px; font-size: 9.5px; font-weight: bold; }
-  th { background: #f0fdf4; text-align: center; font-size: 9px; font-weight: bold; }
-  .two { display: flex; gap: 6px; }
+  .sec { font-weight: bold; font-size: 9.5px; margin: 2px 0 1px 0; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 2px; }
+  th, td { border: 1px solid #000; padding: 1.5px 3px; font-size: 8.5px; font-weight: bold; }
+  th { background: #f0fdf4; text-align: center; font-size: 8px; font-weight: bold; }
+  .two { display: flex; gap: 4px; }
   .two > div { flex: 1; }
   .sum td { font-weight: bold; background: #f0fdf4; }
-  .sig { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 14px; }
-  .sig-box { width: 30%; text-align: center; font-size: 9px; font-weight: bold; }
-  .sig-line { border-top: 1px solid #000; padding-top: 3px; }
+  .sig { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 6px; }
+  .sig-box { width: 30%; text-align: center; font-size: 8px; font-weight: bold; }
+  .sig-line { border-top: 1px solid #000; padding-top: 2px; }
   .stamp { 
-    width: 72px; height: 72px; 
+    width: 52px; height: 52px; 
     border: 2px double #16a34a; 
     border-radius: 50%; 
     display: flex; align-items: center; justify-content: center; 
-    color: #16a34a; font-weight: bold; font-size: 8px; text-align: center; 
+    color: #16a34a; font-weight: bold; font-size: 6.5px; text-align: center; 
     transform: rotate(-15deg); opacity: 0.85; margin: 0 auto; 
   }
-  .qr-wrap { display: flex; justify-content: flex-end; margin-top: 10px; }
-  .qr-box { text-align: center; border: 1.5px solid #16a34a; padding: 4px 6px; border-radius: 6px; }
-  .qr-box img { width: 92px; height: 92px; display: block; margin: 0 auto; }
-  .qr-label { font-size: 7.5px; margin-top: 2px; color: #16a34a; }
+  .qr-wrap { display: flex; justify-content: flex-end; margin-top: 3px; }
+  .qr-box { text-align: center; border: 1px solid #16a34a; padding: 2px 3px; border-radius: 4px; }
+  .qr-box img { width: 50px; height: 50px; display: block; margin: 0 auto; }
+  .qr-label { font-size: 6px; margin-top: 1px; color: #16a34a; }
 </style>
 </head>
 <body>
@@ -216,14 +215,14 @@ export default function UnifiedReportCard(props: UnifiedReportCardProps) {
     <div>
       <div class="sec">2. OBSERVATIONS ON CONDUCT</div>
       <table>
-        <thead><tr><th style="width:52%;text-align:left">Qualities</th><th>Exc</th><th>Good</th><th>Fair</th><th>Poor</th></tr></thead>
+        <thead><tr><th style="width:52%;text-align:left">Qualities</th><th style="width:12%">Exc</th><th style="width:12%">Good</th><th style="width:12%">Fair</th><th style="width:12%">Poor</th></tr></thead>
         <tbody>${ratingRows(CONDUCT, props.conductRatings)}</tbody>
       </table>
     </div>
     <div>
       <div class="sec">3. PERFORMANCE IN PHYSICAL SKILLS</div>
       <table>
-        <thead><tr><th style="width:52%;text-align:left">Activities</th><th>Exc</th><th>Good</th><th>Fair</th><th>Poor</th></tr></thead>
+        <thead><tr><th style="width:52%;text-align:left">Activities</th><th style="width:12%">Exc</th><th style="width:12%">Good</th><th style="width:12%">Fair</th><th style="width:12%">Poor</th></tr></thead>
         <tbody>${ratingRows(PHYSICAL, props.physicalSkills)}</tbody>
       </table>
     </div>
@@ -233,17 +232,16 @@ export default function UnifiedReportCard(props: UnifiedReportCardProps) {
   <table>
     <thead>
       <tr>
-        <th style="width:30%;text-align:left">SUBJECTS</th>
-        <th style="width:9%">CA (30)</th>
-        <th style="width:9%">Exam (70)</th>
-        <th style="width:10%">Total (100)</th>
-        <th style="width:8%">Position</th>
-        ${showFirstTermCol ? '<th style="width:11%">First Term</th>' : ''}
-        ${showSecondTermCol ? '<th style="width:11%">Second Term</th>' : ''}
+        <th style="width:46%;text-align:left">SUBJECTS</th>
+        <th style="width:8%">CA (30)</th>
+        <th style="width:8%">Exam (70)</th>
+        <th style="width:9%">Total (100)</th>
+        ${showFirstTermCol ? '<th style="width:9%">First Term</th>' : ''}
+        ${showSecondTermCol ? '<th style="width:9%">Second Term</th>' : ''}
         <th style="width:12%">Remarks</th>
       </tr>
       <tr class="sum">
-        <td>Max. Obtainable</td><td style="text-align:center">30</td><td style="text-align:center">70</td><td style="text-align:center">100</td><td></td>
+        <td>Max. Obtainable</td><td style="text-align:center">30</td><td style="text-align:center">70</td><td style="text-align:center">100</td>
         ${showFirstTermCol ? '<td style="text-align:center">100</td>' : ''}
         ${showSecondTermCol ? '<td style="text-align:center">100</td>' : ''}
         <td></td>
@@ -251,7 +249,7 @@ export default function UnifiedReportCard(props: UnifiedReportCardProps) {
     </thead>
     <tbody>${subjectsHtml}
       <tr class="sum">
-        <td>TOTAL</td><td></td><td></td><td style="text-align:center">${grandTotal}/${maxTotal}</td><td></td>
+        <td>TOTAL</td><td></td><td></td><td style="text-align:center">${grandTotal}/${maxTotal}</td>
         ${showFirstTermCol ? '<td></td>' : ''}
         ${showSecondTermCol ? '<td></td>' : ''}
         <td style="text-align:center">${overallGrade}</td>
@@ -275,22 +273,22 @@ export default function UnifiedReportCard(props: UnifiedReportCardProps) {
 
   <div class="sec">GENERAL COMMENTS</div>
   <table>
-    <tr><td style="width:22%"><strong>Class Teacher's Comment</strong></td><td>${props.teacherComment || 'Good performance'}</td><td style="width:12%"><strong>Signature</strong></td><td style="width:18%">${props.teacherSignatureUrl ? `<img src="${props.teacherSignatureUrl}" style="height:35px;object-fit:contain" alt=""/>` : ''}</td></tr>
+    <tr><td style="width:22%"><strong>Class Teacher's Comment</strong></td><td>${props.teacherComment || 'Good performance'}</td><td style="width:12%"><strong>Signature</strong></td><td style="width:18%">${props.teacherSignatureUrl ? `<img src="${props.teacherSignatureUrl}" style="height:24px;object-fit:contain" alt=""/>` : ''}</td></tr>
     <tr><td><strong>Head Teacher's Comments</strong></td><td colspan="3">${props.principalComment || 'Keep it up'}</td></tr>
     <tr><td><strong>Parent's Comment</strong></td><td colspan="3" style="height:22px"></td></tr>
   </table>
 
   <div class="sig">
     <div class="sig-box">
-      ${props.teacherSignatureUrl ? `<img src="${props.teacherSignatureUrl}" style="height:45px;object-fit:contain;margin-bottom:2px" alt=""/>` : ''}
+      ${props.teacherSignatureUrl ? `<img src="${props.teacherSignatureUrl}" style="height:32px;object-fit:contain;margin-bottom:1px" alt=""/>` : ''}
       <div class="sig-line">Class Teacher's Signature</div>Date: ${props.teacherDate ? new Date(props.teacherDate).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'}) : '______________'}
     </div>
     <div class="sig-box">
-      ${props.stampUrl ? `<img src="${props.stampUrl}" style="width:90px;height:90px;object-fit:contain" alt="School Stamp"/>` : `<div class="stamp">OFFICIAL<br/>SCHOOL<br/>STAMP</div>`}
-      <div style="margin-top:2px">Affix School Stamp &<br/>Authorized Signature Here</div>
+      ${props.stampUrl ? `<img src="${props.stampUrl}" style="width:60px;height:60px;object-fit:contain" alt="School Stamp"/>` : `<div class="stamp">OFFICIAL<br/>SCHOOL<br/>STAMP</div>`}
+      <div style="margin-top:1px">Affix School Stamp &<br/>Authorized Signature Here</div>
     </div>
     <div class="sig-box">
-      ${props.principalSignatureUrl ? `<img src="${props.principalSignatureUrl}" style="height:45px;object-fit:contain;margin-bottom:2px" alt=""/>` : ''}
+      ${props.principalSignatureUrl ? `<img src="${props.principalSignatureUrl}" style="height:32px;object-fit:contain;margin-bottom:1px" alt=""/>` : ''}
       <div class="sig-line">Head Teacher's Signature</div>Date: ${props.headTeacherDate ? new Date(props.headTeacherDate).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'}) : '______________'}
     </div>
   </div>
