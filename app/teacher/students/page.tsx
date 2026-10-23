@@ -45,6 +45,9 @@ export default function TeacherStudentsPage() {
   // ✅ View Modal State
   const [viewingStudent, setViewingStudent] = useState<Student | null>(null)
   const [showViewModal, setShowViewModal] = useState(false)
+  
+  // ✅ Grid View State
+  const [showGridView, setShowGridView] = useState(false)
 
   useEffect(() => {
     if (isLoaded && user) {
@@ -212,6 +215,22 @@ export default function TeacherStudentsPage() {
               </div>
             </div>
           </div>
+          {students.length > 0 && (
+            <div className="bg-white rounded-lg shadow p-4">
+              <button
+                onClick={() => setShowGridView(true)}
+                className="w-full flex items-center gap-3 hover:bg-gray-50 rounded-lg p-2 -m-2 transition-colors"
+              >
+                <div className="bg-green-100 p-2 rounded-lg">
+                  <GraduationCap size={20} className="text-green-600"/>
+                </div>
+                <div className="text-left">
+                  <p className="text-sm text-gray-600">View All Students</p>
+                  <p className="text-lg font-bold text-green-600">Grid View →</p>
+                </div>
+              </button>
+            </div>
+          )}
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center gap-3">
               <div className="bg-green-100 p-2 rounded-lg">
@@ -298,6 +317,55 @@ export default function TeacherStudentsPage() {
           )}
         </div>
       </main>
+
+      {/* ✅ Grid View Modal */}
+      {showGridView && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white z-10">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Class Directory - Grid View</h2>
+                <p className="text-sm text-gray-600 mt-1">{students.length} students in {selectedClass === 'all' ? 'all classes' : classes.find(c => c.id === selectedClass)?.class_name}</p>
+              </div>
+              <button onClick={() => setShowGridView(false)} className="text-gray-500 hover:text-gray-700">
+                <X size={28} />
+              </button>
+            </div>
+            
+            <div className="p-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                {students.map(student => (
+                  <div key={student.id} className="bg-white border-2 border-gray-200 rounded-xl p-4 hover:border-blue-300 hover:shadow-lg transition-all text-center group">
+                    <div className="w-24 h-24 mx-auto rounded-full overflow-hidden border-4 border-gray-100 bg-gray-50 mb-3 group-hover:border-blue-200 transition-colors">
+                      {student.passport_url ? (
+                        <img src={student.passport_url} alt={student.full_name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-blue-50">
+                          <User className="text-blue-300" size={32} />
+                        </div>
+                      )}
+                    </div>
+                    <h3 className="font-bold text-gray-900 text-sm mb-1 line-clamp-2">{student.full_name}</h3>
+                    <p className="text-xs text-gray-500 mb-2">{student.admission_number}</p>
+                    <span className="inline-block px-2 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded">
+                      {formatClassName(classes.find(c => c.id === student.class_id) || { id: '', class_name: student.class_id, arm: null, department: null })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="mt-8 pt-6 border-t border-gray-200 flex justify-end">
+                <button 
+                  onClick={() => setShowGridView(false)} 
+                  className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg font-bold hover:bg-gray-200 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ✅ View Student Modal */}
       {showViewModal && viewingStudent && (

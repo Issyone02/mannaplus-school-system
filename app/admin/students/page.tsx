@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
 import { supabase } from '@/lib/supabase'
 import { 
-  Users, Plus, Edit, Trash2, Search, X, Save, UserCheck,
+  Users, User, Plus, Edit, Trash2, Search, X, Save, UserCheck,
   GraduationCap, Filter, Upload, Download, FileSpreadsheet,
   AlertCircle, CheckCircle, ChevronLeft, ChevronRight, Eye
 } from 'lucide-react'
@@ -65,6 +65,12 @@ export default function StudentsPage() {
   // ✅ View Modal State
   const [viewingStudent, setViewingStudent] = useState<Student | null>(null)
   const [showViewModal, setShowViewModal] = useState(false)
+  
+  // ✅ Grid View State
+  const [showGridView, setShowGridView] = useState(false)
+  const [gridFilterClass, setGridFilterClass] = useState('all') // ✅ Class filter for grid
+  const [gridStudents, setGridStudents] = useState<Student[]>([]) // ✅ All students for grid
+  const [gridLoading, setGridLoading] = useState(false) // ✅ Loading state for grid
   
   const [activeTab, setActiveTab] = useState<'list' | 'bulk'>('list')
   const [uploading, setUploading] = useState(false)
@@ -262,6 +268,53 @@ export default function StudentsPage() {
   const handleView = (student: Student) => {
     setViewingStudent(student)
     setShowViewModal(true)
+  }
+
+  // ✅ Fetch all students for grid view (with optional class filter)
+  const fetchGridStudents = async (classFilter: string = 'all') => {
+    setGridLoading(true)
+    try {
+      // ✅ Fetch classes first (small table, no foreign key needed)
+      const { data: classesData } = await supabase
+        .from('classes')
+        .select('id, class_name, arm, department, class_level')
+      const classList = (classesData || []) as ClassItem[]
+
+      // ✅ Fetch students without join
+      let query = supabase
+        .from('students')
+        .select('*')
+        .eq('active', true)
+        .order('full_name')
+        .limit(500)
+
+      if (classFilter !== 'all') {
+        query = query.eq('class_id', classFilter)
+      }
+
+      const { data: studentsData, error } = await query
+      if (error) throw error
+
+      // ✅ Enrich with class info in code (same pattern as main list)
+      const enriched = (studentsData || []).map((s: any) => ({
+        ...s,
+        classes: classList.find(c => c.id === s.class_id) || null,
+      }))
+
+      setGridStudents(enriched as Student[])
+    } catch (error: any) {
+      toast.error('Failed to load students: ' + error.message)
+      setGridStudents([])
+    } finally {
+      setGridLoading(false)
+    }
+  }
+
+  // ✅ Open grid view and fetch students
+  const handleOpenGridView = () => {
+    setGridFilterClass('all')
+    setShowGridView(true)
+    fetchGridStudents('all')
   }
 
   const handleEdit = (student: Student) => {
@@ -550,6 +603,15 @@ export default function StudentsPage() {
             <h3 className="text-xl md:text-3xl font-bold text-gray-900">{totalCount}</h3>
             <p className="text-gray-600 text-xs md:text-sm font-medium text-center">Total Students</p>
           </div>
+          {totalCount > 0 && (
+            <div className="center-mobile bg-white rounded-xl shadow-md p-4 md:p-6 border border-gray-200 cursor-pointer hover:shadow-lg transition-shadow" onClick={handleOpenGridView}>
+              <div className="flex items-center justify-center mb-3 md:mb-4">
+                <div className="p-2 md:p-3 rounded-lg bg-green-500"><GraduationCap className="text-white" size={24} /></div>
+              </div>
+              <h3 className="text-xl md:text-3xl font-bold text-green-600">View All</h3>
+              <p className="text-gray-600 text-xs md:text-sm font-medium text-center">Grid Directory</p>
+            </div>
+          )}
           <div className="center-mobile bg-white rounded-xl shadow-md p-4 md:p-6 border border-gray-200">
             <div className="flex items-center justify-center mb-3 md:mb-4">
               <div className="p-2 md:p-3 rounded-lg bg-green-500"><UserCheck className="text-white" size={24} /></div>
@@ -887,6 +949,88 @@ export default function StudentsPage() {
               <div className="mt-8 pt-6 border-t border-gray-200 flex justify-end">
                 <button 
                   onClick={() => { setShowViewModal(false); setViewingStudent(null); }} 
+                  className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg font-bold hover:bg-gray-200 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+            {/* ✅ Grid View Modal */}
+      {showGridView && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[60]"> {/* ✅ z-index 60 to appear above sidebar */}
+          <div className="bg-white rounded-xl shadow-2xl max-w-7xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white z-10">
+              <div className="flex-1">
+                <h2 className="text-2xl font-bold text-gray-900">Student Directory - Grid View</h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  {gridLoading ? 'Loading...' : `${gridStudents.length} student(s) shown`}
+                  {gridStudents.length >= 500 && ' (showing first 500)'}
+                </p>
+              </div>
+              <div className="flex items-center gap-4">
+                {/* ✅ Class Filter Dropdown */}
+                <select
+                  value={gridFilterClass}
+                  onChange={(e) => {
+                    setGridFilterClass(e.target.value)
+                    fetchGridStudents(e.target.value)
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-900 font-medium focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Classes</option>
+                  {classes.map(cls => (
+                    <option key={cls.id} value={cls.id}>
+                      {formatClassName(cls)}
+                    </option>
+                  ))}
+                </select>
+                <button onClick={() => setShowGridView(false)} className="text-gray-500 hover:text-gray-700">
+                  <X size={28} />
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6">
+              {gridLoading ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600 font-bold">Loading students...</p>
+                </div>
+              ) : gridStudents.length === 0 ? (
+                <div className="text-center py-12">
+                  <User className="mx-auto text-gray-300 mb-4" size={48} />
+                  <p className="text-gray-600 font-bold">No students found</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                  {gridStudents.map(student => (
+                    <div key={student.id} className="bg-white border-2 border-gray-200 rounded-xl p-4 hover:border-blue-300 hover:shadow-lg transition-all text-center group">
+                      <div className="w-24 h-24 mx-auto rounded-full overflow-hidden border-4 border-gray-100 bg-gray-50 mb-3 group-hover:border-blue-200 transition-colors">
+                        {student.passport_url ? (
+                          <img src={student.passport_url} alt={student.full_name} className="w-full h-full object-cover" loading="lazy" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-blue-50">
+                            <User className="text-blue-300" size={32} />
+                          </div>
+                        )}
+                      </div>
+                      <h3 className="font-bold text-gray-900 text-sm mb-1 line-clamp-2">{student.full_name}</h3>
+                      <p className="text-xs text-gray-500 mb-2">{student.admission_number}</p>
+                      <span className={`inline-block px-2 py-1 rounded text-xs font-bold ${student.classes?.class_level === 'SS' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>
+                        {formatClassName(student.classes)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              <div className="mt-8 pt-6 border-t border-gray-200 flex justify-end">
+                <button 
+                  onClick={() => setShowGridView(false)} 
                   className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg font-bold hover:bg-gray-200 transition-colors"
                 >
                   Close
