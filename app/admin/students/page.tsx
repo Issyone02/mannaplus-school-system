@@ -902,7 +902,7 @@ export default function StudentsPage() {
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white z-10">
               <h2 className="text-xl font-bold text-gray-900">{editingStudent ? 'Edit Student' : 'Add New Student'}</h2>
-              <button onClick={() => { setShowModal(false); setEditingStudent(null); setFormData({ full_name: '', admission_number: '', date_of_birth: '', gender: 'Male', class_id: '', state: '', address: '', emergency_contact: '', emergency_phone: '', create_portal_account: false, user_email: '', active: true, user_id: null }) }} className="text-gray-500 hover:text-gray-700"><X size={24} /></button>
+              <button onClick={() => { setShowModal(false); setEditingStudent(null); setFormData({ full_name: '', admission_number: '', date_of_birth: '', gender: 'Male', class_id: '', state: '', address: '', emergency_contact: '', emergency_phone: '', create_portal_account: false, user_email: '', active: true, user_id: null, passport_url: null }) }} className="text-gray-500 hover:text-gray-700"><X size={24} /></button>
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
