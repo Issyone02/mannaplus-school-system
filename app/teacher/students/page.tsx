@@ -36,11 +36,33 @@ interface ClassItem {
 export default function TeacherStudentsPage() {
   const router = useRouter()
   const { user, isLoaded } = useUser()
-  const [students, setStudents] = useState<Student[]>([])
+  const [allStudents, setAllStudents] = useState<Student[]>([])
+  const [filteredStudents, setFilteredStudents] = useState<Student[]>([])
   const [classes, setClasses] = useState<ClassItem[]>([])
   const [selectedClass, setSelectedClass] = useState<string>('all')
   const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(true)
+
+  // ✅ INSTANT CLIENT-SIDE FILTERING
+  useEffect(() => {
+    let result = allStudents;
+
+    // 1. Filter by Class
+    if (selectedClass !== 'all') {
+      result = result.filter(s => s.class_id === selectedClass);
+    }
+
+    // 2. Filter by Search Term (Instant)
+    if (searchTerm) {
+      const lowerTerm = searchTerm.toLowerCase();
+      result = result.filter(s => 
+        s.full_name.toLowerCase().includes(lowerTerm) || 
+        s.admission_number.toLowerCase().includes(lowerTerm)
+      );
+    }
+
+    setFilteredStudents(result);
+  }, [allStudents, searchTerm, selectedClass]);
   
   // ✅ View Modal State
   const [viewingStudent, setViewingStudent] = useState<Student | null>(null)
@@ -59,7 +81,7 @@ export default function TeacherStudentsPage() {
     if (classes.length > 0) {
       fetchStudents()
     }
-  }, [selectedClass, searchTerm, classes])
+  }, [classes])
 
   const fetchTeacherClasses = async () => {
     try {
@@ -109,27 +131,18 @@ export default function TeacherStudentsPage() {
   const fetchStudents = async () => {
     setLoading(true)
     try {
-      let query = supabase
+      // ✅ Fetch ALL assigned students from DB (No search filter here)
+      const assignedClassIds = classes.map(c => c.id)
+      
+      const { data: studentsData, error } = await supabase
         .from('students')
         .select('*')
         .eq('active', true)
+        .in('class_id', assignedClassIds)
         .order('full_name')
 
-      const assignedClassIds = classes.map(c => c.id)
-      query = query.in('class_id', assignedClassIds)
-
-      if (selectedClass !== 'all') {
-        query = query.eq('class_id', selectedClass)
-      }
-
-      if (searchTerm) {
-        query = query.or(`full_name.ilike.%${searchTerm}%,admission_number.ilike.%${searchTerm}%`)
-      }
-
-      const { data: studentsData, error } = await query
-
       if (error) throw error
-      setStudents(studentsData || [])
+      setAllStudents(studentsData || [])
     } catch (error: any) {
       toast.error('Failed to load students: ' + error.message)
     } finally {
@@ -211,11 +224,11 @@ export default function TeacherStudentsPage() {
               </div>
               <div>
                 <p className="text-sm text-gray-600">Total Students</p>
-                <p className="text-2xl font-bold text-gray-900">{students.length}</p>
+                <p className="text-2xl font-bold text-gray-900">{filteredStudents.length}</p>
               </div>
             </div>
           </div>
-          {students.length > 0 && (
+          {filteredStudents.length > 0 && (
             <div className="bg-white rounded-lg shadow p-4">
               <button
                 onClick={() => setShowGridView(true)}
@@ -249,7 +262,7 @@ export default function TeacherStudentsPage() {
             <h2 className="text-lg font-bold text-gray-900">Students List</h2>
           </div>
           
-          {students.length === 0 ? (
+          {filteredStudents.length === 0 ? (
             <div className="p-8 text-center text-gray-600">
               <User size={48} className="mx-auto text-gray-300 mb-2"/>
               <p className="font-bold">No students found</p>
@@ -269,7 +282,7 @@ export default function TeacherStudentsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {students.map(student => {
+                  {filteredStudents.map(student => {
                     const studentClass = classes.find(c => c.id === student.class_id)
                     return (
                       <tr key={student.id} className="hover:bg-gray-50">
@@ -325,7 +338,7 @@ export default function TeacherStudentsPage() {
             <div className="p-6 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white z-10">
               <div>
                 <h2 className="text-2xl font-bold text-gray-900">Class Directory - Grid View</h2>
-                <p className="text-sm text-gray-600 mt-1">{students.length} students in {selectedClass === 'all' ? 'all classes' : classes.find(c => c.id === selectedClass)?.class_name}</p>
+                <p className="text-sm text-gray-600 mt-1">{filteredStudents.length} students in {selectedClass === 'all' ? 'all classes' : classes.find(c => c.id === selectedClass)?.class_name}</p>
               </div>
               <button onClick={() => setShowGridView(false)} className="text-gray-500 hover:text-gray-700">
                 <X size={28} />
@@ -334,11 +347,11 @@ export default function TeacherStudentsPage() {
             
             <div className="p-6">
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                {students.map(student => (
+                {filteredStudents.map(student => (
                   <div key={student.id} className="bg-white border-2 border-gray-200 rounded-xl p-4 hover:border-blue-300 hover:shadow-lg transition-all text-center group">
                     <div className="w-24 h-24 mx-auto rounded-full overflow-hidden border-4 border-gray-100 bg-gray-50 mb-3 group-hover:border-blue-200 transition-colors">
                       {student.passport_url ? (
-                        <img src={student.passport_url} alt={student.full_name} className="w-full h-full object-cover" />
+                        <img src={student.passport_url} alt={student.full_name} className="w-full h-full object-cover" loading="lazy" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-blue-50">
                           <User className="text-blue-300" size={32} />
