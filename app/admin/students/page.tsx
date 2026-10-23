@@ -7,10 +7,11 @@ import { supabase } from '@/lib/supabase'
 import { 
   Users, Plus, Edit, Trash2, Search, X, Save, UserCheck,
   GraduationCap, Filter, Upload, Download, FileSpreadsheet,
-  AlertCircle, CheckCircle, ChevronLeft, ChevronRight
+  AlertCircle, CheckCircle, ChevronLeft, ChevronRight, Eye
 } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
 import { findEmailConflict } from '@/lib/emailGuard'
+import PassportUpload from '@/components/PassportUpload'
 
 interface ClassItem {
   id: string
@@ -35,6 +36,7 @@ interface Student {
   user_email: string
   active: boolean
   user_id: string | null
+  passport_url?: string | null
   classes?: ClassItem | null
 }
 
@@ -60,6 +62,10 @@ export default function StudentsPage() {
   const [editingStudent, setEditingStudent] = useState<Student | null>(null)
   const [submitting, setSubmitting] = useState(false)
   
+  // ✅ View Modal State
+  const [viewingStudent, setViewingStudent] = useState<Student | null>(null)
+  const [showViewModal, setShowViewModal] = useState(false)
+  
   const [activeTab, setActiveTab] = useState<'list' | 'bulk'>('list')
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState({ total: 0, success: 0, failed: 0 })
@@ -79,6 +85,7 @@ export default function StudentsPage() {
     user_email: '',
     active: true,
     user_id: null as string | null,
+    passport_url: null as string | null,
   })
 
   useEffect(() => {
@@ -222,6 +229,7 @@ export default function StudentsPage() {
         user_email: formData.user_email.trim(),
         active: formData.active,
         user_id: userId,
+        passport_url: formData.passport_url,
       }
 
       if (editingStudent) {
@@ -240,7 +248,7 @@ export default function StudentsPage() {
         full_name: '', admission_number: '', date_of_birth: '', gender: 'Male',
         class_id: '', state: '', address: '', emergency_contact: '',
         emergency_phone: '', create_portal_account: false, user_email: '',
-        active: true, user_id: null,
+        active: true, user_id: null, passport_url: null,
       })
       fetchStudents()
     } catch (error: any) {
@@ -250,6 +258,11 @@ export default function StudentsPage() {
     }
   }
       
+
+  const handleView = (student: Student) => {
+    setViewingStudent(student)
+    setShowViewModal(true)
+  }
 
   const handleEdit = (student: Student) => {
     setEditingStudent(student)
@@ -267,6 +280,7 @@ export default function StudentsPage() {
       user_email: student.user_email || '',
       active: student.active ?? true,
       user_id: student.user_id || null,
+      passport_url: student.passport_url || null,
     })
     setShowModal(true)
   }
@@ -670,6 +684,7 @@ export default function StudentsPage() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <div className="flex justify-end gap-2">
+                              <button onClick={() => handleView(student)} className="text-gray-600 hover:text-gray-900 p-1 hover:bg-gray-100 rounded" title="View Details"><Eye size={18} /></button>
                               <button onClick={() => handleEdit(student)} className="text-blue-600 hover:text-blue-900 p-1 hover:bg-blue-50 rounded" title="Edit"><Edit size={18} /></button>
                               <button onClick={() => handleDelete(student.id)} className="text-red-600 hover:text-red-900 p-1 hover:bg-red-50 rounded" title="Delete"><Trash2 size={18} /></button>
                             </div>
@@ -793,6 +808,95 @@ export default function StudentsPage() {
         )}
       </main>
 
+      {/* ✅ View Student Modal */}
+      {showViewModal && viewingStudent && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white z-10">
+              <h2 className="text-xl font-bold text-gray-900">Student Profile</h2>
+              <button onClick={() => { setShowViewModal(false); setViewingStudent(null); }} className="text-gray-500 hover:text-gray-700"><X size={24} /></button>
+            </div>
+            
+            <div className="p-6">
+              {/* Passport Photo Header */}
+              <div className="flex flex-col md:flex-row items-center md:items-start gap-6 mb-8">
+                <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-blue-100 bg-gray-100 flex items-center justify-center shrink-0">
+                  {viewingStudent.passport_url ? (
+                    <img src={viewingStudent.passport_url} alt={viewingStudent.full_name} className="w-full h-full object-cover" />
+                  ) : (
+                    <Users className="text-gray-400" size={48} />
+                  )}
+                </div>
+                <div className="text-center md:text-left flex-1">
+                  <h3 className="text-2xl font-bold text-gray-900">{viewingStudent.full_name}</h3>
+                  <p className="text-gray-600 font-medium">Admission No: {viewingStudent.admission_number || 'N/A'}</p>
+                  <div className="flex flex-wrap gap-2 mt-3 justify-center md:justify-start">
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${viewingStudent.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                      {viewingStudent.active ? 'Active' : 'Inactive'}
+                    </span>
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
+                      {formatClassName(viewingStudent.classes)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Details Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Gender</p>
+                    <p className="text-sm font-medium text-gray-900 capitalize">{viewingStudent.gender}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Date of Birth</p>
+                    <p className="text-sm font-medium text-gray-900">{viewingStudent.date_of_birth || 'Not provided'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">State of Origin</p>
+                    <p className="text-sm font-medium text-gray-900">{viewingStudent.state || 'Not provided'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Home Address</p>
+                    <p className="text-sm font-medium text-gray-900">{viewingStudent.address || 'Not provided'}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Emergency Contact</p>
+                    <p className="text-sm font-medium text-gray-900">{viewingStudent.emergency_contact || 'Not provided'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Emergency Phone</p>
+                    <p className="text-sm font-medium text-gray-900">{viewingStudent.emergency_phone || 'Not provided'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Portal Access</p>
+                    <p className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                      {viewingStudent.create_portal_account ? (
+                        <><UserCheck size={16} className="text-green-600" /> Yes ({viewingStudent.user_email})</>
+                      ) : (
+                        <><X size={16} className="text-gray-400" /> No</>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-8 pt-6 border-t border-gray-200 flex justify-end">
+                <button 
+                  onClick={() => { setShowViewModal(false); setViewingStudent(null); }} 
+                  className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg font-bold hover:bg-gray-200 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -834,6 +938,13 @@ export default function StudentsPage() {
                 <input type="checkbox" id="active_status" checked={formData.active} onChange={(e) => setFormData({ ...formData, active: e.target.checked })} className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" />
                 <label htmlFor="active_status" className="ml-2 block text-sm font-bold text-gray-700">Student is Active</label>
               </div>
+
+              {/* ✅ Passport Upload Section */}
+              <PassportUpload 
+                currentUrl={formData.passport_url} 
+                onUrlChange={(url) => setFormData({ ...formData, passport_url: url })} 
+              />
+
               <div className="flex gap-3 pt-4 border-t border-gray-200">
                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-bold hover:bg-gray-50 transition-colors">Cancel</button>
                 <button type="submit" disabled={submitting} className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700 transition-colors disabled:opacity-50"><Save size={18} /> {submitting ? 'Saving...' : (editingStudent ? 'Update' : 'Create')}</button>
