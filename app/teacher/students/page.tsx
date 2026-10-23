@@ -325,7 +325,7 @@ export default function TeacherStudentsPage() {
                   <p className="text-gray-600 font-medium">Admission No: {viewingStudent.admission_number || 'N/A'}</p>
                   <div className="flex flex-wrap gap-2 mt-3 justify-center md:justify-start">
                     <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
-                      {formatClassName(classes.find(c => c.id === viewingStudent.class_id) || { class_name: viewingStudent.class_id, arm: null, department: null })}
+                      {formatClassName(classes.find(c => c.id === viewingStudent.class_id) || { id: '', class_name: 'Unknown Class', arm: null, department: null })}
                     </span>
                   </div>
                 </div>
