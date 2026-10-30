@@ -25,6 +25,7 @@ interface ClassItem {
   class_name: string
   arm: string | null
   department: string | null
+  class_level: string
 }
 
 interface SessionItem {
@@ -121,7 +122,7 @@ export default function TimetablePage() {
       // 1. Fetch Classes
       const { data: classesData, error: classesError } = await supabase
         .from('classes')
-        .select('id, class_name, arm, department')
+        .select('id, class_name, arm, department, class_level')
         .order('class_name')
       
       if (classesError) throw classesError
