@@ -947,9 +947,9 @@ export default function ResultsPage() {
                   const offeredIds = classSubjects[selectedClass] || []
                   const classSubjectsRaw = subjects.filter(s => offeredIds.includes(s.id))
                   const editingSubject = editingItem ? subjects.find(s => s.id === editingItem.subject_id) : null
-                  const classSubjects = editingSubject && !classSubjectsRaw.some(s => s.id === editingSubject.id) ? [...classSubjectsRaw, editingSubject] : classSubjectsRaw
-                  const coreSubjects = classSubjects.filter(s => s.category === 'Core')
-                  const deptSubjects = classSubjects.filter(s => s.category === 'Departmental')
+                  const availableSubjects = editingSubject && !classSubjectsRaw.some(s => s.id === editingSubject.id) ? [...classSubjectsRaw, editingSubject] : classSubjectsRaw
+                  const coreSubjects = availableSubjects.filter(s => s.category === 'Core')
+                  const deptSubjects = availableSubjects.filter(s => s.category === 'Departmental')
                   return (
                     <>
                       {coreSubjects.length > 0 && (
