@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { Plus, Edit, Trash2, Search, X, Save, User, GraduationCap, Mail, Phone, Calendar, Briefcase, PenLine } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import TeacherSignatureModal from '@/components/TeacherSignatureModal';
+import { useAuth } from '@clerk/nextjs'; // ✅ Added useAuth
 
 interface Teacher {
   id: string;
@@ -37,6 +38,7 @@ interface AppUser {
 }
 
 export default function TeachersPage() {
+  const { getToken } = useAuth(); // ✅ Added getToken
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
@@ -142,9 +144,13 @@ export default function TeachersPage() {
   // ✅ CREATE CLERK USER (FOR PORTAL ACCOUNTS)
   const createClerkUser = async (email: string, fullName: string) => {
     try {
+      const token = await getToken(); // ✅ Get Clerk token
       const response = await fetch('/api/users/create', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`, // ✅ Added Authorization header
+        },
         body: JSON.stringify({ 
           email, 
           fullName, 

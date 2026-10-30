@@ -453,6 +453,9 @@ export default function ClassesPage() {
                   }}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
                 >
+                  <option value="Prep">Prep</option>
+                  <option value="KG">KG</option>
+                  <option value="Nursery">Nursery</option>
                   <option value="Primary">Primary</option>
                   <option value="JSS">JSS (Junior Secondary)</option>
                   <option value="SS">SS (Senior Secondary)</option>

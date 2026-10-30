@@ -10,13 +10,13 @@ import { auditActions } from '@/lib/auditLog'
 import StudentAttendanceSummary from '@/components/StudentAttendanceSummary'
 
 interface AttendanceRecord {
-  id: string
+  id?: string
   student_id: string
   date: string
-  status: 'present' | 'absent' | 'late' | 'excused'
+  status: 'present' | 'absent' | 'late' | 'holiday'
   note?: string
   marked_by: string
-  created_at: string
+  created_at?: string
   is_locked?: boolean
 }
 
@@ -195,7 +195,7 @@ function TeacherAttendanceContent() {
     }
   }
 
-  const handleStatusChange = (studentId: string, status: 'present' | 'absent' | 'late' | 'excused') => {
+  const handleStatusChange = (studentId: string, status: 'present' | 'absent' | 'late' | 'holiday') => {
     if (isLocked) {
       toast.error('Attendance is locked and cannot be modified')
       return
@@ -229,6 +229,41 @@ function TeacherAttendanceContent() {
         marked_by: 'teacher'
       }
     }))
+  }
+
+  // ✅ BULK MARK: Mark all students as present or holiday
+  const handleBulkMark = (status: 'present' | 'holiday') => {
+    if (isLocked) {
+      toast.error('Attendance is locked and cannot be modified')
+      return
+    }
+
+    if (students.length === 0) {
+      toast.error('No students in this class')
+      return
+    }
+
+    const label = status === 'present' ? 'Present' : 'Holiday'
+    const confirmMsg = `Mark all ${students.length} student(s) as ${label} for ${selectedDate}?\n\nYou can still adjust individual students before clicking "Save".`
+
+    if (!confirm(confirmMsg)) return
+
+    setAttendance(prev => {
+      const next = { ...prev }
+      students.forEach(s => {
+        next[s.id] = {
+          ...next[s.id],
+          student_id: s.id,
+          date: selectedDate,
+          status,
+          note: next[s.id]?.note || '',
+          marked_by: 'teacher'
+        }
+      })
+      return next
+    })
+
+    toast.success(`${students.length} student(s) marked as ${label}. Click "Save" to confirm.`)
   }
 
   const saveAllAttendance = async () => {
@@ -303,7 +338,7 @@ function TeacherAttendanceContent() {
         case 'present': return baseClass + "bg-green-500 text-white"
         case 'absent': return baseClass + "bg-red-500 text-white"
         case 'late': return baseClass + "bg-yellow-500 text-white"
-        case 'excused': return baseClass + "bg-blue-500 text-white"
+        case 'holiday': return baseClass + "bg-blue-500 text-white"
       }
     }
     
@@ -420,6 +455,32 @@ function TeacherAttendanceContent() {
           </div>
         </div>
 
+        {/* ✅ Bulk Actions Bar */}
+        <div className="bg-white rounded-lg shadow p-4 mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+          <div>
+            <p className="font-bold text-gray-900 text-sm">Bulk Actions</p>
+            <p className="text-xs text-gray-500">
+              Applies to all {students.length} student(s) in this class on {selectedDate}. You can still adjust individuals afterwards.
+            </p>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={() => handleBulkMark('present')}
+              disabled={isLocked || students.length === 0}
+              className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <CheckCircle size={16} /> Mark All Present
+            </button>
+            <button
+              onClick={() => handleBulkMark('holiday')}
+              disabled={isLocked || students.length === 0}
+              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <AlertCircle size={16} /> Mark All Holiday
+            </button>
+          </div>
+        </div>
+
         {/* Attendance Table */}
         <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
           <div className="overflow-x-auto">
@@ -462,11 +523,11 @@ function TeacherAttendanceContent() {
                           <Clock size={14} className="inline mr-1"/> Late
                         </button>
                         <button
-                          onClick={() => handleStatusChange(student.id, 'excused')}
+                          onClick={() => handleStatusChange(student.id, 'holiday')}
                           disabled={isLocked}
-                          className={getStatusButtonClass(student.id, 'excused')}
+                          className={getStatusButtonClass(student.id, 'holiday')}
                         >
-                          <AlertCircle size={14} className="inline mr-1"/> Excused
+                          <AlertCircle size={14} className="inline mr-1"/> Holiday
                         </button>
                       </div>
                     </td>
@@ -542,7 +603,7 @@ function TeacherAttendanceContent() {
               <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
                 <AlertCircle size={14} className="text-white"/>
               </div>
-              <span className="text-sm text-gray-700 font-medium">Excused</span>
+              <span className="text-sm text-gray-700 font-medium">Holiday</span>
             </div>
           </div>
         </div>

@@ -30,7 +30,7 @@ interface AttendanceRecord {
   student_id: string
   class_id: string
   date: string
-  status: 'present' | 'absent' | 'late' | 'excused'
+  status: 'present' | 'absent' | 'late' | 'holiday'
   note?: string
   is_locked?: boolean
   locked_at?: string
@@ -54,14 +54,12 @@ export default function AttendancePage() {
   const [isOTPModalOpen, setIsOTPModalOpen] = useState(false)
   const [isUnlocked, setIsUnlocked] = useState(false)
   const [unlockPurpose, setUnlockPurpose] = useState('')
-
-  const statusOptions: { value: 'present' | 'absent' | 'late' | 'excused'; label: string; icon: any; color: string }[] = [
+  const statusOptions: { value: 'present' | 'absent' | 'late' | 'holiday'; label: string; icon: any; color: string }[] = [
     { value: 'present', label: 'Present', icon: CheckCircle, color: 'bg-green-100 text-green-800 border-green-300' },
     { value: 'absent', label: 'Absent', icon: XCircle, color: 'bg-red-100 text-red-800 border-red-300' },
     { value: 'late', label: 'Late', icon: Clock, color: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
-    { value: 'excused', label: 'Excused', icon: AlertCircle, color: 'bg-blue-100 text-blue-800 border-blue-300' },
+    { value: 'holiday', label: 'Holiday', icon: AlertCircle, color: 'bg-blue-100 text-blue-800 border-blue-300' },
   ]
-
   useEffect(() => {
     fetchClasses()
   }, [])
@@ -135,7 +133,7 @@ export default function AttendancePage() {
     }
   }
 
-  const handleStatusChange = (studentId: string, status: 'present' | 'absent' | 'late' | 'excused') => {
+  const handleStatusChange = (studentId: string, status: 'present' | 'absent' | 'late' | 'holiday') => {
     setAttendance(prev => ({
       ...prev,
       [studentId]: {
@@ -157,6 +155,48 @@ export default function AttendancePage() {
         note
       }
     }))
+  }
+
+  // ✅ BULK MARK: Mark all visible (unlocked) students as present or holiday
+  const handleBulkMark = (status: 'present' | 'holiday') => {
+    const label = status === 'present' ? 'Present' : 'Holiday'
+
+    // Only target students that are visible AND not locked
+    const targetStudents = filteredStudents.filter(s => {
+      const record = attendance[s.id]
+      const isLocked = record?.is_locked && !isUnlocked
+      return !isLocked
+    })
+
+    if (targetStudents.length === 0) {
+      toast.error('No unlocked students to mark. Use "Unlock with OTP" first if records are locked.')
+      return
+    }
+
+    const lockedCount = filteredStudents.length - targetStudents.length
+    const confirmMsg =
+      `Mark ${targetStudents.length} student(s) as ${label} for ${selectedDate}?` +
+      (lockedCount > 0 ? `\n\n⚠️ ${lockedCount} locked record(s) will be skipped.` : '') +
+      `\n\nYou can still adjust individual students before clicking "Save All".`
+
+    if (!confirm(confirmMsg)) return
+
+    setAttendance(prev => {
+      const next = { ...prev }
+      targetStudents.forEach(s => {
+        next[s.id] = {
+          ...next[s.id],
+          student_id: s.id,
+          class_id: selectedClass,
+          date: selectedDate,
+          status,
+          note: next[s.id]?.note || '',
+        }
+      })
+      return next
+    })
+
+    toast.success(`${targetStudents.length} student(s) marked as ${label}. Click "Save All" to confirm.`)
   }
 
   const saveAllAttendance = async () => {
@@ -288,7 +328,7 @@ export default function AttendancePage() {
     present: presentCount,
     absent: filteredStudents.filter(s => attendance[s.id]?.status === 'absent').length,
     late: filteredStudents.filter(s => attendance[s.id]?.status === 'late').length,
-    excused: filteredStudents.filter(s => attendance[s.id]?.status === 'excused').length,
+    holiday: filteredStudents.filter(s => attendance[s.id]?.status === 'holiday').length,
     notMarked: filteredStudents.filter(s => !attendance[s.id]?.status).length,
     percentage: totalStudents > 0 ? Math.round((presentCount / totalStudents) * 100) : 0,
   }
@@ -419,6 +459,32 @@ export default function AttendancePage() {
         </div>
       </div>
 
+      {/* ✅ Bulk Actions Bar */}
+      <div className="bg-white rounded-lg shadow p-4 mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+        <div>
+          <p className="font-bold text-gray-900 text-sm">Bulk Actions</p>
+          <p className="text-xs text-gray-500">
+            Applies to {filteredStudents.length} visible student(s) on {selectedDate}. You can still adjust individuals afterwards.
+          </p>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <button
+            onClick={() => handleBulkMark('present')}
+            disabled={filteredStudents.length === 0}
+            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <CheckCircle size={16} /> Mark All Present
+          </button>
+          <button
+            onClick={() => handleBulkMark('holiday')}
+            disabled={filteredStudents.length === 0}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <AlertCircle size={16} /> Mark All Holiday
+          </button>
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 md:gap-4 mb-6">
         <div className="center-mobile bg-white rounded-xl shadow-md p-3 md:p-4 border border-gray-200">
           <h3 className="text-xl md:text-2xl font-bold text-gray-900">{stats.total}</h3>
@@ -437,8 +503,8 @@ export default function AttendancePage() {
           <p className="text-yellow-700 text-xs md:text-sm font-medium text-center">Late</p>
         </div>
         <div className="center-mobile bg-blue-50 rounded-xl shadow-md p-3 md:p-4 border-2 border-blue-200">
-          <h3 className="text-xl md:text-2xl font-bold text-blue-900">{stats.excused}</h3>
-          <p className="text-blue-700 text-xs md:text-sm font-medium text-center">Excused</p>
+          <h3 className="text-xl md:text-2xl font-bold text-blue-900">{stats.holiday}</h3>
+          <p className="text-blue-700 text-xs md:text-sm font-medium text-center">Holiday</p>
         </div>
         <div className="center-mobile bg-purple-50 rounded-xl shadow-md p-3 md:p-4 border-2 border-purple-200">
           <h3 className="text-xl md:text-2xl font-bold text-purple-900">{stats.percentage}%</h3>

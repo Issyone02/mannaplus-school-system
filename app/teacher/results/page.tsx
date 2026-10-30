@@ -13,7 +13,7 @@ import { calculateClassPositions } from '@/lib/classPositions'
 import { getSchoolAssets, getClassTeacherSignature } from '@/lib/schoolAssets'
 import { enrichResultsWithPreviousTerms } from '@/lib/reportCardData'
 
-interface Subject { id: string; name: string; code: string; class_id: string; department: string | null; category: string; term: string; session: string; active: boolean }
+interface Subject { id: string; name: string; code: string; department: string | null; category: string }
 interface ClassItem { id: string; class_name: string; arm: string | null; department: string | null; class_level: string }
 
 // ✅ DYNAMIC SESSION: School year starts in September
@@ -42,6 +42,7 @@ export default function TeacherResultsPage() {
   const [students, setStudents] = useState<any[]>([])
   const [classes, setClasses] = useState<ClassItem[]>([])
   const [teacherClassIds, setTeacherClassIds] = useState<string[]>([])
+  const [offerMap, setOfferMap] = useState<Record<string, string[]>>({}) // ✅ class_id -> offered subject ids
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editingItem, setEditingItem] = useState<any>(null)
@@ -90,11 +91,12 @@ export default function TeacherResultsPage() {
     if (teacherClassIds.length > 0) {
       fetchStudents()
       fetchResults()
+      fetchOfferings()
     }
   }, [teacherClassIds, selectedTerm, selectedSession])
 
   useEffect(() => {
-    if (selectedClass) fetchSubjects()
+    fetchSubjects()
   }, [selectedClass])
 
   // ✅ Report card extras (position, report data, signatures)
@@ -157,8 +159,24 @@ export default function TeacherResultsPage() {
     }
   }
 
+  // ✅ Fetch class→subject offerings for all teacher classes
+  const fetchOfferings = async () => {
+    const { data } = await supabase.from('class_subjects').select('class_id, subject_id').in('class_id', teacherClassIds)
+    const m: Record<string, string[]> = {}
+    ;(data || []).forEach((cs: any) => {
+      if (!m[cs.class_id]) m[cs.class_id] = []
+      m[cs.class_id].push(cs.subject_id)
+    })
+    setOfferMap(m)
+  }
+
+  // ✅ Subjects = master subjects offered to the selected class
   const fetchSubjects = async () => {
-    const { data, error } = await supabase.from('subjects').select('*').eq('class_id', selectedClass).order('name')
+    if (!selectedClass) { setSubjects([]); return }
+    const { data: cs } = await supabase.from('class_subjects').select('subject_id').eq('class_id', selectedClass)
+    const ids = (cs || []).map((x: any) => x.subject_id)
+    if (ids.length === 0) { setSubjects([]); return }
+    const { data, error } = await supabase.from('subjects').select('*').in('id', ids).order('name')
     if (!error) setSubjects(data || [])
   }
 
@@ -271,7 +289,7 @@ export default function TeacherResultsPage() {
           const student = students.find(s => s.admission_number.toLowerCase() === admissionNumber.toLowerCase())
           if (!student) { errors.push(`Row ${i + 1}: Student "${admissionNumber}" NOT FOUND in your classes`); failed++; continue }
 
-          const subject = subjects.find(s => s.code.toLowerCase() === subjectCode.toLowerCase() && s.class_id === student.class_id)
+          const subject = subjects.find(s => s.code.toLowerCase() === subjectCode.toLowerCase() && (offerMap[student.class_id] || []).includes(s.id))
             || subjects.find(s => s.code.toLowerCase() === subjectCode.toLowerCase())
           if (!subject) { errors.push(`Row ${i + 1}: Subject "${subjectCode}" NOT FOUND`); failed++; continue }
 
@@ -503,9 +521,9 @@ export default function TeacherResultsPage() {
               )}
             </div>
           )}
-
           {activeTab === 'subjects' && (
             <div className="overflow-x-auto">
+              <p className="text-sm text-gray-600 mb-2">Subjects offered to <strong>{classes.find(c => c.id === selectedClass)?.class_name || 'selected class'}</strong> (managed by Admin):</p>
               <table className="w-full">
                 <thead>
                   <tr>
@@ -513,19 +531,15 @@ export default function TeacherResultsPage() {
                     <th className="text-gray-900 font-bold">Code</th>
                     <th className="text-gray-900 font-bold">Category</th>
                     <th className="text-gray-900 font-bold">Department</th>
-                    <th className="text-gray-900 font-bold">Term</th>
-                    <th className="text-gray-900 font-bold">Session</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredSubjects.length === 0 ? <tr><td colSpan={6} className="p-8 text-center text-gray-600">No subjects found</td></tr> : filteredSubjects.map(s => (
+                  {filteredSubjects.length === 0 ? <tr><td colSpan={4} className="p-8 text-center text-gray-600">No subjects offered to this class yet. Ask Admin to assign offerings.</td></tr> : filteredSubjects.map(s => (
                     <tr key={s.id} className="border-t hover:bg-gray-50">
                       <td className="p-2 text-gray-900">{s.name}</td>
                       <td className="text-gray-900">{s.code}</td>
                       <td><span className={`px-2 py-1 rounded text-xs font-bold ${s.category === 'Core' ? 'bg-green-100 text-green-800' : 'bg-purple-100 text-purple-800'}`}>{s.category}</span></td>
                       <td>{s.department ? <span className="px-2 py-1 rounded text-xs font-bold bg-blue-100 text-blue-800">{s.department}</span> : <span className="text-gray-400">-</span>}</td>
-                      <td className="text-gray-900">{s.term}</td>
-                      <td className="text-gray-900">{s.session}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -555,6 +569,7 @@ export default function TeacherResultsPage() {
               </select>
               <select value={resultForm.subject_id} onChange={(e) => setResultForm({ ...resultForm, subject_id: e.target.value })} required className="w-full p-2 border rounded text-gray-900">
                 <option value="">Select Subject</option>
+                {subjects.length === 0 && <option disabled>No subjects offered to selected class</option>}
                 {subjects.map(s => <option key={s.id} value={s.id}>{s.name} ({s.code})</option>)}
               </select>
               <div className="grid grid-cols-2 gap-4">

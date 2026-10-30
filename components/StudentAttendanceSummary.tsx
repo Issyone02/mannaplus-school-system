@@ -16,7 +16,7 @@ interface StudentAttendanceSummaryProps {
 
 export default function StudentAttendanceSummary({ isOpen, onClose, student }: StudentAttendanceSummaryProps) {
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)) // e.g., '2026-07'
-  const [stats, setStats] = useState({ present: 0, absent: 0, late: 0, excused: 0 })
+  const [stats, setStats] = useState({ present: 0, absent: 0, late: 0, holiday: 0 })
   const [loading, setLoading] = useState(false)
 
   // Generate month options (last 12 months)
@@ -51,9 +51,9 @@ export default function StudentAttendanceSummary({ isOpen, onClose, student }: S
 
       if (error) throw error
 
-      const counts = { present: 0, absent: 0, late: 0, excused: 0 }
+      const counts = { present: 0, absent: 0, late: 0, holiday: 0 }
       ;(data || []).forEach((record: any) => {
-        const status = record.status as 'present' | 'absent' | 'late' | 'excused'
+        const status = record.status as 'present' | 'absent' | 'late' | 'holiday'
         if (counts[status] !== undefined) {
           counts[status]++
         }
@@ -69,7 +69,7 @@ export default function StudentAttendanceSummary({ isOpen, onClose, student }: S
 
   if (!isOpen || !student) return null
 
-  const totalDays = stats.present + stats.absent + stats.late + stats.excused
+  const totalDays = stats.present + stats.absent + stats.late + stats.holiday
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[100]">
@@ -136,13 +136,13 @@ export default function StudentAttendanceSummary({ isOpen, onClose, student }: S
               <p className="text-xs text-yellow-600 font-medium">Late</p>
             </div>
 
-            {/* Excused */}
+            {/* Holiday */}
             <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 text-center">
               <div className="flex justify-center mb-2">
                 <AlertCircle size={24} className="text-blue-600" />
               </div>
-              <p className="text-2xl font-bold text-blue-700">{stats.excused}</p>
-              <p className="text-xs text-blue-600 font-medium">Excused</p>
+              <p className="text-2xl font-bold text-blue-700">{stats.holiday}</p>
+              <p className="text-xs text-blue-600 font-medium">Holiday</p>
             </div>
           </div>
         )}

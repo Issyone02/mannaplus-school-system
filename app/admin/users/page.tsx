@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Plus, Edit, Trash2, Search, X, Save, UserPlus, Link, Unlink } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
+import { useAuth } from '@clerk/nextjs'; // ✅ Added useAuth
 
 type UserRole = 'admin' | 'teacher' | 'parent' | 'student';
 
@@ -19,6 +20,7 @@ interface AppUser {
 }
 
 export default function UserManagementPage() {
+  const { getToken } = useAuth(); // ✅ Added getToken
   const [users, setUsers] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -107,9 +109,13 @@ export default function UserManagementPage() {
           return;
         }
 
+        const token = await getToken(); // ✅ Get Clerk token
         const response = await fetch('/api/users/create', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`, // ✅ Added Authorization header
+          },
           body: JSON.stringify({
             email: formData.email,
             fullName: formData.full_name,
@@ -144,11 +150,15 @@ export default function UserManagementPage() {
     }
 
     try {
+      const token = await getToken(); // ✅ Get Clerk token
       const response = await fetch('/api/users/delete', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`, // ✅ Added Authorization header
+        },
         body: JSON.stringify({
-          userId: user.id, // Only send the target user's ID. The API verifies the admin's session automatically.
+          userId: user.id,
         }),
       });
 

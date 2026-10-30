@@ -307,7 +307,7 @@ export default function ParentPortalPage() {
           present: presentCount,
           absent: data.filter((a: any) => a.status === 'absent').length,
           late: data.filter((a: any) => a.status === 'late').length,
-          excused: data.filter((a: any) => a.status === 'excused').length,
+          excused: data.filter((a: any) => a.status === 'holiday').length,
         })
         setAttendance({
           total_days: data.length,
@@ -315,7 +315,7 @@ export default function ParentPortalPage() {
           percentage: Math.round((presentCount / data.length) * 100)
         })
       } else {
-        setAttendanceCounts({ total: 0, present: 0, absent: 0, late: 0, excused: 0 })
+        setAttendanceCounts({ total: 0, present: 0, absent: 0, late: 0, holiday: 0 })
         setAttendance({ total_days: 0, present_days: 0, percentage: 0 })
       }
     } catch (error: any) {
@@ -820,7 +820,7 @@ export default function ParentPortalPage() {
                 </div>
                 <div className="bg-blue-50 p-4 rounded-lg text-center border-2 border-blue-200">
                   <AlertCircle size={28} className="mx-auto text-blue-600 mb-2"/>
-                  <p className="text-xs text-blue-600 mb-1">Days Excused</p>
+                  <p className="text-xs text-blue-600 mb-1">Days on Holiday</p>
                   <p className="text-2xl font-bold text-blue-900">{attendanceCounts?.excused ?? '--'}</p>
                 </div>
                 <div className="bg-purple-50 p-4 rounded-lg text-center border-2 border-purple-200">
@@ -838,7 +838,7 @@ export default function ParentPortalPage() {
                     <div className="flex items-center gap-2"><div className="w-6 h-6 bg-green-500 rounded flex items-center justify-center"><CheckCircle size={12} className="text-white"/></div><span className="text-sm text-gray-700">Present</span></div>
                     <div className="flex items-center gap-2"><div className="w-6 h-6 bg-red-500 rounded flex items-center justify-center"><XCircle size={12} className="text-white"/></div><span className="text-sm text-gray-700">Absent</span></div>
                     <div className="flex items-center gap-2"><div className="w-6 h-6 bg-yellow-500 rounded flex items-center justify-center"><Clock size={12} className="text-white"/></div><span className="text-sm text-gray-700">Late</span></div>
-                    <div className="flex items-center gap-2"><div className="w-6 h-6 bg-blue-500 rounded flex items-center justify-center"><AlertCircle size={12} className="text-white"/></div><span className="text-sm text-gray-700">Excused</span></div>
+                    <div className="flex items-center gap-2"><div className="w-6 h-6 bg-blue-500 rounded flex items-center justify-center"><AlertCircle size={12} className="text-white"/></div><span className="text-sm text-gray-700">Holiday</span></div>
                   </div>
                 </div>
               </div>

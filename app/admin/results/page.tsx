@@ -13,10 +13,26 @@ import { sendNotification } from '@/lib/notifications'
 import { logAuditEvent, auditActions } from '@/lib/auditLog'
 import { useUser } from '@clerk/nextjs'
 
-interface Subject { id: string; name: string; code: string; class_id: string; department: string | null; category: string; term: string; session: string; active: boolean }
+interface Subject { id: string; name: string; code: string; department: string | null; category: string }
 interface Result { id: string; student_id: string; student_name: string; admission_number: string; subject_id: string; subject_name: string; class_id: string; department: string | null; term: string; session: string; ca_score: number; exam_score: number; total_score: number; grade: string; remark: string; first_term_total?: number; second_term_total?: number; teacher_comment?: string; principal_comment?: string }
 interface Student { id: string; full_name: string; admission_number: string; class_id: string; department: string | null }
 interface ClassItem { id: string; class_name: string; arm: string | null; department: string | null; class_level: string }
+
+// ✅ DYNAMIC SESSION: School year starts in September
+const getCurrentSession = () => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth() + 1
+  return month >= 9 ? `${year}/${year + 1}` : `${year - 1}/${year}`
+}
+
+// ✅ DYNAMIC TERM: Based on term start months
+const getCurrentTerm = () => {
+  const month = new Date().getMonth() + 1
+  if (month >= 9) return 'First Term'
+  if (month <= 3) return 'Second Term'
+  return 'Third Term'
+}
 
 export default function ResultsPage() {
   const { user } = useUser()
@@ -31,8 +47,8 @@ export default function ResultsPage() {
   const [editingItem, setEditingItem] = useState<any>(null)
   const [selectedClass, setSelectedClass] = useState('')
   const [selectedDepartment, setSelectedDepartment] = useState('')
-  const [selectedTerm, setSelectedTerm] = useState('First Term')
-  const [selectedSession, setSelectedSession] = useState('2025/2026')
+  const [selectedTerm, setSelectedTerm] = useState(getCurrentTerm())
+  const [selectedSession, setSelectedSession] = useState(getCurrentSession())
   const [expandedStudent, setExpandedStudent] = useState<string | null>(null)
   
   const [printStudentId, setPrintStudentId] = useState<string | null>(null)
@@ -117,7 +133,11 @@ export default function ResultsPage() {
     { grade: 'F9', min: 0, max: 39, remark: 'Fail' },
   ]
 
-  const [subjectForm, setSubjectForm] = useState({ name: '', code: '', class_id: '', department: '', category: 'Core', term: 'First Term', session: '2025/2026', active: true })
+  const [subjectForm, setSubjectForm] = useState({ name: '', code: '', department: '', category: 'Core' })
+  // ✅ CLASS OFFERINGS: class_id -> offered subject ids
+  const [classSubjects, setClassSubjects] = useState<Record<string, string[]>>({})
+  const [offeringClassId, setOfferingClassId] = useState('')
+  const [offeringDraft, setOfferingDraft] = useState<string[]>([])
   const [resultForm, setResultForm] = useState({ student_id: '', subject_id: '', ca_score: '', exam_score: '' })
 
   useEffect(() => { fetchClasses(); fetchData() }, [])
@@ -129,9 +149,45 @@ export default function ResultsPage() {
   }
 
   const fetchData = async () => {
-    await Promise.all([fetchSubjects(), fetchStudents()])
+    await Promise.all([fetchSubjects(), fetchStudents(), fetchClassSubjects()])
     setLoading(false)
   }
+
+  // ✅ Fetch class→subject offerings map
+  const fetchClassSubjects = async () => {
+    const { data, error } = await supabase.from('class_subjects').select('class_id, subject_id')
+    if (error) console.error('Failed to fetch offerings:', error)
+    else {
+      const map: Record<string, string[]> = {}
+      ;(data || []).forEach((cs: any) => {
+        if (!map[cs.class_id]) map[cs.class_id] = []
+        map[cs.class_id].push(cs.subject_id)
+      })
+      setClassSubjects(map)
+    }
+  }
+
+  // ✅ Save offerings for the selected class
+  const saveOfferings = async () => {
+    if (!offeringClassId) { toast.error('Select a class first'); return }
+    const current = classSubjects[offeringClassId] || []
+    const toAdd = offeringDraft.filter(id => !current.includes(id)).map(id => ({ class_id: offeringClassId, subject_id: id }))
+    const toRemove = current.filter(id => !offeringDraft.includes(id))
+    try {
+      if (toAdd.length > 0) {
+        const { error } = await supabase.from('class_subjects').insert(toAdd)
+        if (error) throw error
+      }
+      if (toRemove.length > 0) {
+        const { error } = await supabase.from('class_subjects').delete().eq('class_id', offeringClassId).in('subject_id', toRemove)
+        if (error) throw error
+      }
+      toast.success('Class offerings saved!')
+      await fetchClassSubjects()
+    } catch (error: any) { toast.error('Failed: ' + error.message) }
+  }
+
+  const offeredByCount = (subjectId: string) => Object.values(classSubjects).filter(ids => ids.includes(subjectId)).length
 
   // ✅ Refetch results only when the session changes (keeps payload small)
   useEffect(() => { fetchResults() }, [selectedSession])
@@ -195,59 +251,7 @@ export default function ResultsPage() {
     return { grade: g?.grade || 'F9', remark: g?.remark || 'Fail' }
   }
 
-  // ✅ Sync ONE new subject to every student (creates 0-score rows so it appears on report cards)
-  const syncSubjectToAllStudents = async (subjectId: string, classId: string) => {
-    toast.loading('Syncing subject to all students...', { id: 'sync' })
-    try {
-      const studentsInClass = students.filter(s => s.class_id === classId)
-      if (studentsInClass.length === 0) {
-        toast.dismiss('sync')
-        toast.error('No students found in this class')
-        return
-      }
-
-      // Find students who already have this subject (avoid duplicates without needing a constraint)
-      const { data: existing } = await supabase
-        .from('results')
-        .select('student_id')
-        .eq('subject_id', subjectId)
-        .eq('term', selectedTerm)
-        .eq('session', selectedSession)
-
-      const existingIds = new Set((existing || []).map((r: any) => r.student_id))
-      const missing = studentsInClass.filter(s => !existingIds.has(s.id))
-
-      if (missing.length === 0) {
-        toast.success('All students already have this subject!', { id: 'sync' })
-        return
-      }
-
-      const payloads = missing.map(s => ({
-        student_id: s.id,
-        subject_id: subjectId,
-        class_id: classId,
-        term: selectedTerm,
-        session: selectedSession,
-        ca_score: 0,
-        exam_score: 0,
-        total_score: 0,
-        grade: 'F9',
-        remark: 'Fail',
-        marked_by: 'admin_sync'
-      }))
-
-      const { error } = await supabase.from('results').insert(payloads)
-      if (error) throw error
-
-      toast.success(`Subject automatically added to ${missing.length} students' report cards!`, { id: 'sync' })
-      await fetchResults()
-    } catch (error: any) {
-      console.error('Sync error:', error)
-      toast.error('Failed to sync: ' + error.message, { id: 'sync' })
-    }
-  }
-
-  // ✅ Sync ALL subjects of the selected class to ALL students (one-click fix for any missing rows)
+  // ✅ Sync ALL offered subjects of the selected class to ALL students (one-click fix for any missing rows)
   const syncAllSubjectsToStudents = async () => {
     if (!selectedClass) {
       toast.error('Please select a class first')
@@ -255,10 +259,11 @@ export default function ResultsPage() {
     }
     toast.loading('Syncing all subjects to students...', { id: 'syncall' })
     try {
-      const classSubjects = subjects.filter(s => s.class_id === selectedClass)
+      const offeredIds = classSubjects[selectedClass] || []
+      const classSubjectsList = subjects.filter(s => offeredIds.includes(s.id))
       const studentsInClass = students.filter(s => s.class_id === selectedClass)
 
-      if (classSubjects.length === 0 || studentsInClass.length === 0) {
+      if (classSubjectsList.length === 0 || studentsInClass.length === 0) {
         toast.dismiss('syncall')
         toast.error('No subjects or students found for this class')
         return
@@ -275,7 +280,7 @@ export default function ResultsPage() {
 
       const payloads: any[] = []
       studentsInClass.forEach(st => {
-        classSubjects.forEach(sub => {
+        classSubjectsList.forEach(sub => {
           if (!existingKeys.has(`${st.id}|${sub.id}`)) {
             payloads.push({
               student_id: st.id,
@@ -313,7 +318,7 @@ export default function ResultsPage() {
   const handleAddSubject = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      const payload = { ...subjectForm, department: subjectForm.category === 'Core' ? null : subjectForm.department || null }
+      const payload = { name: subjectForm.name.trim(), code: subjectForm.code.trim().toUpperCase(), category: subjectForm.category, department: subjectForm.category === 'Core' ? null : subjectForm.department || null }
       const adminEmail = user?.primaryEmailAddress?.emailAddress || 'unknown@admin.com'
       if (editingItem) {
         await supabase.from('subjects').update(payload).eq('id', editingItem.id)
@@ -329,22 +334,16 @@ export default function ResultsPage() {
           entityId: editingItem.id,
         })
       } else {
-        // ✅ Insert and get the new ID back
-        const { data, error } = await supabase.from('subjects').insert([payload]).select().single()
+        const { error } = await supabase.from('subjects').insert([payload])
         if (error) throw error
         
-        toast.success('Subject added!')
+        toast.success('Subject added! Now assign it to classes in "Manage Class Offerings".')
 
         // ✅ AUDIT: Log subject creation
-        await auditActions.adminCreateSubject(adminEmail, payload.name, payload.class_id)
-        
-        // ✅ Automatically sync this new subject to all students in the class
-        if (data && data.id) {
-          await syncSubjectToAllStudents(data.id, payload.class_id)
-        }
+        await auditActions.adminCreateSubject(adminEmail, payload.name, selectedClass || 'master-list')
       }
       setShowModal(false)
-      setSubjectForm({ name: '', code: '', class_id: '', department: '', category: 'Core', term: 'First Term', session: '2025/2026', active: true })
+       setSubjectForm({ name: '', code: '', department: '', category: 'Core' })
       setEditingItem(null)
       fetchSubjects()
     } catch (error: any) { toast.error('Failed: ' + error.message) }
@@ -482,9 +481,8 @@ export default function ResultsPage() {
 
   const filteredSubjects = subjects.filter(s => {
     const matchesSearch = s.name.toLowerCase().includes(debouncedSearch.toLowerCase()) || s.code.toLowerCase().includes(debouncedSearch.toLowerCase())
-    const matchesClass = selectedClass ? s.class_id === selectedClass : true
     const matchesDept = selectedDepartment ? s.department === selectedDepartment : true
-    return matchesSearch && matchesClass && matchesDept
+    return matchesSearch && matchesDept
   })
 
   const getStudentResults = (studentId: string) => {
@@ -533,12 +531,13 @@ export default function ResultsPage() {
           if (!admissionNumber || !subjectCode) { errors.push(`Row ${i + 1}: Missing Admission Number or Subject Code`); failed++; continue }
           const student = students.find(s => s.admission_number.toLowerCase() === admissionNumber.toLowerCase())
           if (!student) { errors.push(`Row ${i + 1}: Student "${admissionNumber}" NOT FOUND`); failed++; continue }
+          const offeredIds = classSubjects[student.class_id] || []
           const subject = subjects.find(s => {
             const codeMatch = s.code.toLowerCase() === subjectCode.toLowerCase()
-            const classMatch = s.class_id.toLowerCase() === selectedClass.toLowerCase()
+            const offered = offeredIds.includes(s.id)
             const deptMatch = s.category === 'Core' || s.department === student.department
-            return codeMatch && classMatch && deptMatch
-          })
+            return codeMatch && offered && deptMatch
+          }) || subjects.find(s => s.code.toLowerCase() === subjectCode.toLowerCase() && offeredIds.includes(s.id))
           if (!subject) { errors.push(`Row ${i + 1}: Subject code "${subjectCode}" NOT FOUND`); failed++; continue }
           const ca = parseFloat(caScore) || 0; const exam = parseFloat(examScore) || 0; const total = ca + exam
           const { grade, remark } = getGrade(total)
@@ -570,7 +569,7 @@ export default function ResultsPage() {
   }
 
   const downloadSubjectTemplate = () => {
-    const csv = 'name,code,class_id,category,department,term,session,active\nEnglish Language,ENG,JSS1,Core,,First Term,2025/2026,true'
+    const csv = 'name,code,category,department\nEnglish Language,ENG,Core,\nPhysics,PHY,Departmental,Science'
     const blob = new Blob([csv], { type: 'text/csv' })
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -587,38 +586,22 @@ export default function ResultsPage() {
         const csv = event.target?.result as string
         const lines = csv.split('\n').slice(1)
 
-        // ✅ Helper: accepts either a UUID or a class name like "Primary 3" in the CSV
-        const resolveClassId = (raw: string) => {
-          if (!raw) return ''
-          const exact = classes.find(c => c.id === raw)
-          if (exact) return exact.id
-          const byName = classes.find(c =>
-            c.class_name.toLowerCase() === raw.toLowerCase() ||
-            `${c.class_name} ${c.arm || ''}`.trim().toLowerCase() === raw.toLowerCase()
-          )
-          return byName?.id || raw
-        }
-
         const newSubjects = lines.map(line => {
-          const [name, code, class_id, category, department, term, session, active] = line.split(',')
+          const [name, code, category, department] = line.split(',')
           return {
             name: name?.trim(),
-            code: code?.trim(),
-            class_id: resolveClassId(class_id?.trim()),
+            code: code?.trim().toUpperCase(),
             category: category?.trim() || 'Core',
-            department: (category?.trim() === 'Core' ? null : department?.trim()) || null,
-            term: term?.trim() || selectedTerm,
-            session: session?.trim() || selectedSession,
-            active: active?.trim() === 'true'
+            department: (category?.trim() === 'Core' ? null : department?.trim()) || null
           }
-        }).filter(s => s.name && s.code && s.class_id)
+        }).filter(s => s.name && s.code)
 
         if (newSubjects.length === 0) { toast.error('No valid subjects'); return }
 
         // ✅ FIXED: upsert on the unique constraint so duplicates UPDATE instead of crashing
         const { error } = await supabase
           .from('subjects')
-          .upsert(newSubjects, { onConflict: 'code,class_id,term,session' })
+          .upsert(newSubjects, { onConflict: 'code' })
 
         if (error) throw error
 
@@ -632,9 +615,7 @@ export default function ResultsPage() {
         )
 
         await fetchSubjects()
-
-        // ✅ Automatically push them onto every student's report card with 0 scores
-        await syncAllSubjectsToStudents()
+        toast.success('Now assign the new subjects to classes via "Manage Class Offerings", then Sync.')
       } catch (error: any) { toast.error('Failed: ' + error.message) }
     }
     reader.readAsText(file)
@@ -830,38 +811,71 @@ export default function ResultsPage() {
           )}
 
                     {activeTab === 'subjects' && (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px]">
-                <thead>
-                  <tr>
-                    <th className="p-2 text-left text-gray-900 font-bold">Name</th>
-                    <th className="text-gray-900 font-bold">Code</th>
-                    <th className="text-gray-900 font-bold">Class</th>
-                    <th className="text-gray-900 font-bold">Category</th>
-                    <th className="text-gray-900 font-bold">Department</th>
-                    <th className="text-gray-900 font-bold">Term</th>
-                    <th className="text-gray-900 font-bold">Session</th>
-                    <th className="text-gray-900 font-bold">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredSubjects.length === 0 ? <tr><td colSpan={8} className="p-8 text-center text-gray-600">No subjects found</td></tr> : filteredSubjects.map(s => (
-                    <tr key={s.id} className="border-t hover:bg-gray-50">
-                      <td className="p-2 text-gray-900">{s.name}</td>
-                      <td className="text-gray-900">{s.code}</td>
-                      <td className="text-gray-900">{s.class_id}</td>
-                      <td className="text-gray-900"><span className={`px-2 py-1 rounded text-xs font-bold ${s.category === 'Core' ? 'bg-green-100 text-green-800' : 'bg-purple-100 text-purple-800'}`}>{s.category}</span></td>
-                      <td className="text-gray-900">{s.department ? <span className="px-2 py-1 rounded text-xs font-bold bg-blue-100 text-blue-800">{s.department}</span> : <span className="text-gray-400">-</span>}</td>
-                      <td className="text-gray-900">{s.term}</td>
-                      <td className="text-gray-900">{s.session}</td>
-                      <td>
-                        <button onClick={() => { setEditingItem(s); setSubjectForm({ name: s.name, code: s.code, class_id: s.class_id, department: s.department || '', category: s.category || 'Core', term: s.term, session: s.session, active: s.active }); setModalType('subject'); setShowModal(true) }} className="text-blue-600 hover:text-blue-800 mr-2"><Edit size={16}/></button>
-                        <button onClick={() => handleDeleteSubject(s.id)} className="text-red-600 hover:text-red-800"><Trash2 size={16}/></button>
-                      </td>
+            <div className="space-y-6">
+              {/* ✅ CLASS OFFERINGS MANAGER */}
+              <div className="bg-purple-50 border-2 border-purple-200 rounded-xl p-4">
+                <h3 className="text-lg font-bold text-purple-900 mb-1">Manage Class Offerings</h3>
+                <p className="text-sm text-purple-700 mb-3">Choose which subjects each class offers. Results entry & report cards follow this list.</p>
+                <div className="flex flex-wrap gap-3 items-center mb-3">
+                  <select
+                    value={offeringClassId}
+                    onChange={(e) => { setOfferingClassId(e.target.value); setOfferingDraft(classSubjects[e.target.value] || []) }}
+                    className="p-2 border rounded text-gray-900 bg-white min-w-[220px]"
+                  >
+                    <option value="">Select class...</option>
+                    {classes.map(c => <option key={c.id} value={c.id}>{c.class_name} {c.arm ? `(${c.arm})` : ''} {c.department ? `- ${c.department}` : ''}</option>)}
+                  </select>
+                  <button onClick={saveOfferings} disabled={!offeringClassId} className="bg-purple-600 text-white px-4 py-2 rounded font-bold hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                    Save Offerings ({offeringDraft.length} selected)
+                  </button>
+                </div>
+                {offeringClassId && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1 max-h-64 overflow-y-auto bg-white p-3 rounded border border-purple-200">
+                    {subjects.map(s => (
+                      <label key={s.id} className="flex items-center space-x-2 cursor-pointer hover:bg-purple-50 p-2 rounded">
+                        <input
+                          type="checkbox"
+                          checked={offeringDraft.includes(s.id)}
+                          onChange={() => setOfferingDraft(d => d.includes(s.id) ? d.filter(x => x !== s.id) : [...d, s.id])}
+                          className="w-4 h-4 text-purple-600 rounded"
+                        />
+                        <span className="text-sm text-gray-800 font-medium">{s.name} <span className="text-gray-400">({s.code})</span></span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* ✅ MASTER SUBJECT LIST */}
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[800px]">
+                  <thead>
+                    <tr>
+                      <th className="p-2 text-left text-gray-900 font-bold">Name</th>
+                      <th className="text-gray-900 font-bold">Code</th>
+                      <th className="text-gray-900 font-bold">Category</th>
+                      <th className="text-gray-900 font-bold">Department</th>
+                      <th className="text-gray-900 font-bold">Offered By</th>
+                      <th className="text-gray-900 font-bold">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {filteredSubjects.length === 0 ? <tr><td colSpan={6} className="p-8 text-center text-gray-600">No subjects found</td></tr> : filteredSubjects.map(s => (
+                      <tr key={s.id} className="border-t hover:bg-gray-50">
+                        <td className="p-2 text-gray-900">{s.name}</td>
+                        <td className="text-gray-900">{s.code}</td>
+                        <td className="text-gray-900"><span className={`px-2 py-1 rounded text-xs font-bold ${s.category === 'Core' ? 'bg-green-100 text-green-800' : 'bg-purple-100 text-purple-800'}`}>{s.category}</span></td>
+                        <td className="text-gray-900">{s.department ? <span className="px-2 py-1 rounded text-xs font-bold bg-blue-100 text-blue-800">{s.department}</span> : <span className="text-gray-400">-</span>}</td>
+                        <td className="text-gray-900"><span className="px-2 py-1 rounded text-xs font-bold bg-gray-100 text-gray-700">{offeredByCount(s.id)} class(es)</span></td>
+                        <td>
+                          <button onClick={() => { setEditingItem(s); setSubjectForm({ name: s.name, code: s.code, department: s.department || '', category: s.category || 'Core' }); setModalType('subject'); setShowModal(true) }} className="text-blue-600 hover:text-blue-800 mr-2"><Edit size={16}/></button>
+                          <button onClick={() => handleDeleteSubject(s.id)} className="text-red-600 hover:text-red-800"><Trash2 size={16}/></button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
@@ -890,15 +904,11 @@ export default function ResultsPage() {
             <form onSubmit={handleAddSubject} className="space-y-3">
               <input placeholder="Subject Name" value={subjectForm.name} onChange={(e) => setSubjectForm({...subjectForm, name: e.target.value})} required className="w-full p-2 border rounded text-gray-900"/>
               <input placeholder="Subject Code (e.g. ENG, PHY)" value={subjectForm.code} onChange={(e) => setSubjectForm({...subjectForm, code: e.target.value})} required className="w-full p-2 border rounded text-gray-900"/>
-              <select value={subjectForm.class_id} onChange={(e) => setSubjectForm({...subjectForm, class_id: e.target.value})} required className="w-full p-2 border rounded text-gray-900">
-                <option value="">Select Class</option>
-                {classes.map(c => <option key={c.id} value={c.id}>{c.class_name} {c.arm ? `(${c.arm})` : ''}</option>)}
-              </select>
               <select value={subjectForm.category} onChange={(e) => setSubjectForm({...subjectForm, category: e.target.value, department: e.target.value === 'Core' ? '' : subjectForm.department})} className="w-full p-2 border rounded text-gray-900">
                 <option value="Core">Core (General Subject)</option>
                 <option value="Departmental">Departmental (Specific Subject)</option>
               </select>
-              {subjectForm.category === 'Departmental' && classes.find(c => c.id === subjectForm.class_id)?.class_level === 'SS' && (
+              {subjectForm.category === 'Departmental' && (
                 <select value={subjectForm.department} onChange={(e) => setSubjectForm({...subjectForm, department: e.target.value})} required className="w-full p-2 border rounded text-gray-900">
                   <option value="">Select Department</option>
                   <option value="Science">Science</option>
@@ -906,8 +916,7 @@ export default function ResultsPage() {
                   <option value="Commercial">Commercial</option>
                 </select>
               )}
-              <select value={subjectForm.term} onChange={(e) => setSubjectForm({...subjectForm, term: e.target.value})} className="w-full p-2 border rounded text-gray-900">{termOptions.map(t => <option key={t} value={t}>{t}</option>)}</select>
-              <select value={subjectForm.session} onChange={(e) => setSubjectForm({...subjectForm, session: e.target.value})} className="w-full p-2 border rounded text-gray-900">{sessionOptions.map(s => <option key={s} value={s}>{s}</option>)}</select>
+              <p className="text-xs text-gray-500">💡 After saving, assign this subject to classes in the Subjects tab → "Manage Class Offerings".</p>
               <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded font-bold hover:bg-blue-700">{editingItem ? 'Update' : 'Save'}</button>
             </form>
           </div>
@@ -935,7 +944,8 @@ export default function ResultsPage() {
               <select value={resultForm.subject_id} onChange={(e) => setResultForm({...resultForm, subject_id: e.target.value})} required className="w-full p-2 border rounded text-gray-900">
                 <option value="">Select Subject</option>
                 {(() => {
-                  const classSubjectsRaw = subjects.filter(s => s.class_id === selectedClass)
+                  const offeredIds = classSubjects[selectedClass] || []
+                  const classSubjectsRaw = subjects.filter(s => offeredIds.includes(s.id))
                   const editingSubject = editingItem ? subjects.find(s => s.id === editingItem.subject_id) : null
                   const classSubjects = editingSubject && !classSubjectsRaw.some(s => s.id === editingSubject.id) ? [...classSubjectsRaw, editingSubject] : classSubjectsRaw
                   const coreSubjects = classSubjects.filter(s => s.category === 'Core')

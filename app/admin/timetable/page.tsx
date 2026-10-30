@@ -31,6 +31,42 @@ interface SessionItem {
   session_name: string
 }
 
+// ✅ SMART SCHEDULE CONFIGURATIONS
+type ScheduleSlot = { period: number; start: string; end: string; label: string } | { break: true; label: string; start: string; end: string };
+
+// Primary / JSS / SSS Schedule
+const seniorSchedule: ScheduleSlot[] = [
+  { period: 1, start: '08:15', end: '09:00', label: 'Period 1' },
+  { period: 2, start: '09:00', end: '09:45', label: 'Period 2' },
+  { period: 3, start: '09:45', end: '10:30', label: 'Period 3' },
+  { break: true, label: 'Short Break', start: '10:30', end: '10:45' },
+  { period: 4, start: '10:45', end: '11:30', label: 'Period 4' },
+  { period: 5, start: '11:30', end: '12:15', label: 'Period 5' },
+  { break: true, label: 'Long Break', start: '12:15', end: '12:45' },
+  { period: 6, start: '12:45', end: '13:30', label: 'Period 6' },
+  { period: 7, start: '13:30', end: '14:15', label: 'Period 7' },
+];
+
+// ⚠️ Prep / KG / Nursery Schedule (Edit these times when you finalize them)
+const earlyYearsSchedule: ScheduleSlot[] = [
+  { period: 1, start: '08:00', end: '08:45', label: 'Period 1' },
+  { period: 2, start: '08:45', end: '09:30', label: 'Period 2' },
+  { break: true, label: 'Snack Break', start: '09:30', end: '10:00' },
+  { period: 3, start: '10:00', end: '10:45', label: 'Period 3' },
+  { period: 4, start: '10:45', end: '11:30', label: 'Period 4' },
+  { break: true, label: 'Lunch / Rest', start: '11:30', end: '12:15' },
+  { period: 5, start: '12:15', end: '13:00', label: 'Period 5' },
+];
+
+const getScheduleType = (className: string, classLevel?: string): 'senior' | 'early_years' => {
+  const lowerName = (className || '').toLowerCase();
+  const lowerLevel = (classLevel || '').toLowerCase();
+  if (['nursery', 'kg', 'kindergarten', 'prep', 'creche', 'early years', 'daycare'].some(k => lowerName.includes(k) || lowerLevel.includes(k))) {
+    return 'early_years';
+  }
+  return 'senior';
+};
+
 export default function TimetablePage() {
   const [entries, setEntries] = useState<TimetableEntry[]>([])
   const [classes, setClasses] = useState<ClassItem[]>([]) // ✅ NEW: Dynamic classes
@@ -51,7 +87,6 @@ export default function TimetablePage() {
     { value: 'wednesday', label: 'Wednesday' },
     { value: 'thursday', label: 'Thursday' },
     { value: 'friday', label: 'Friday' },
-    { value: 'saturday', label: 'Saturday' },
   ]
 
   const [formData, setFormData] = useState<TimetableEntry>({
@@ -207,8 +242,8 @@ export default function TimetablePage() {
 
   // Generate timetable grid
   const generateTimetableGrid = () => {
-    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-    const periods = [1, 2, 3, 4, 5, 6]
+    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
+    const periods = [1, 2, 3, 4, 5, 6, 7] // ✅ Support up to 7 periods for Senior classes
     
     const grid: Record<string, Record<number, TimetableEntry | null>> = {}
     days.forEach(day => {
@@ -233,6 +268,11 @@ export default function TimetablePage() {
     if (!cls) return classId
     return `${cls.class_name} ${cls.arm ? `(${cls.arm})` : ''} ${cls.department ? `- ${cls.department}` : ''}`
   }
+
+  // ✅ Determine active schedule based on selected class
+  const selectedClassObj = classes.find(c => c.id === selectedClass);
+  const scheduleType = selectedClassObj ? getScheduleType(selectedClassObj.class_name, selectedClassObj.class_level) : 'senior';
+  const activeSchedule = scheduleType === 'senior' ? seniorSchedule : earlyYearsSchedule;
 
   if (loading) return <div className="p-8 text-gray-900 font-bold">Loading timetable...</div>
 
@@ -309,72 +349,87 @@ export default function TimetablePage() {
           <thead>
             <tr className="bg-blue-600 text-white">
               <th className="p-3 text-left font-bold">Period</th>
-              {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'].map(day => (
+              {['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].map(day => (
                 <th key={day} className="p-3 text-center font-bold capitalize">{day}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {[1, 2, 3, 4, 5, 6].map(period => (
-              <tr key={period} className="border-t">
-                <td className="p-3 font-bold text-gray-900 bg-gray-50">
-                  Period {period}
-                  <p className="text-xs text-gray-500">0{8 + period - 1}:00 - 0{9 + period - 1}:00</p>
-                </td>
-                {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'].map(day => {
-                  const entry = timetableGrid[day]?.[period]
-                  return (
-                    <td key={`${day}-${period}`} className="p-2 border-l">
-                      {entry ? (
-                        <div className="bg-blue-50 border border-blue-200 rounded p-2 text-xs">
-                          <p className="font-bold text-blue-900">{entry.subject_name}</p>
-                          {entry.teacher_name && (
-                            <p className="text-blue-700 flex items-center gap-1">
-                              <User size={10}/> {entry.teacher_name}
-                            </p>
-                          )}
-                          {entry.room_number && (
-                            <p className="text-blue-600 flex items-center gap-1">
-                              <MapPin size={10}/> {entry.room_number}
-                            </p>
-                          )}
-                          <div className="mt-2 flex gap-1">
-                            <button 
-                              onClick={() => handleEdit(entry)}
-                              className="text-blue-600 hover:text-blue-800"
-                            >
-                              <Edit size={12}/>
-                            </button>
-                            <button 
-                              onClick={() => handleDelete(entry.id!)}
-                              className="text-red-600 hover:text-red-800"
-                            >
-                              <Trash2 size={12}/>
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            setFormData({
-                              ...formData,
-                              day_of_week: day,
-                              period_number: period,
-                              start_time: `0${8 + period - 1}:00`,
-                              end_time: `0${9 + period - 1}:00`
-                            })
-                            setShowModal(true)
-                          }}
-                          className="w-full h-full min-h-[80px] border-2 border-dashed border-gray-300 rounded text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-colors text-xs flex items-center justify-center"
-                        >
-                          + Add
-                        </button>
-                      )}
+            {activeSchedule.map((slot, index) => {
+              // ✅ Render Break Rows (Spans across all days)
+              if ('break' in slot && slot.break) {
+                return (
+                  <tr key={`break-${index}`} className="bg-yellow-50 border-t border-yellow-200">
+                    <td colSpan={7} className="p-2 text-center font-bold text-yellow-800 text-sm">
+                      ⏸️ {slot.label} ({slot.start} - {slot.end})
                     </td>
-                  )
-                })}
-              </tr>
-            ))}
+                  </tr>
+                );
+              }
+
+              // ✅ Render Period Rows
+              const period = slot.period;
+              return (
+                <tr key={period} className="border-t">
+                  <td className="p-3 font-bold text-gray-900 bg-gray-50">
+                    {slot.label}
+                    <p className="text-xs text-gray-500">{slot.start} - {slot.end}</p>
+                  </td>
+                  {['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].map(day => {
+                    const entry = timetableGrid[day]?.[period]
+                    return (
+                      <td key={`${day}-${period}`} className="p-2 border-l">
+                        {entry ? (
+                          <div className="bg-blue-50 border border-blue-200 rounded p-2 text-xs">
+                            <p className="font-bold text-blue-900">{entry.subject_name}</p>
+                            {entry.teacher_name && (
+                              <p className="text-blue-700 flex items-center gap-1">
+                                <User size={10}/> {entry.teacher_name}
+                              </p>
+                            )}
+                            {entry.room_number && (
+                              <p className="text-blue-600 flex items-center gap-1">
+                                <MapPin size={10}/> {entry.room_number}
+                              </p>
+                            )}
+                            <div className="mt-2 flex gap-1">
+                              <button 
+                                onClick={() => handleEdit(entry)}
+                                className="text-blue-600 hover:text-blue-800"
+                              >
+                                <Edit size={12}/>
+                              </button>
+                              <button 
+                                onClick={() => handleDelete(entry.id!)}
+                                className="text-red-600 hover:text-red-800"
+                              >
+                                <Trash2 size={12}/>
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setFormData({
+                                ...formData,
+                                day_of_week: day,
+                                period_number: period,
+                                start_time: slot.start, // ✅ Auto-fills correct start time
+                                end_time: slot.end     // ✅ Auto-fills correct end time
+                              })
+                              setShowModal(true)
+                            }}
+                            className="w-full h-full min-h-[80px] border-2 border-dashed border-gray-300 rounded text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-colors text-xs flex items-center justify-center"
+                          >
+                            + Add
+                          </button>
+                        )}
+                      </td>
+                    )
+                  })}
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -438,10 +493,21 @@ export default function TimetablePage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Period</label>
                   <select 
                     value={formData.period_number}
-                    onChange={(e) => setFormData({...formData, period_number: parseInt(e.target.value)})}
+                    onChange={(e) => {
+                      const pNum = parseInt(e.target.value);
+                      const slot = activeSchedule.find(s => !('break' in s) && s.period === pNum) as any;
+                      setFormData({
+                        ...formData, 
+                        period_number: pNum,
+                        start_time: slot?.start || formData.start_time, // ✅ Auto-updates time when period changes
+                        end_time: slot?.end || formData.end_time
+                      });
+                    }}
                     className="w-full p-2 border rounded text-gray-900"
                   >
-                    {[1,2,3,4,5,6].map(p => <option key={p} value={p}>Period {p}</option>)}
+                    {activeSchedule.filter(s => !('break' in s)).map((s: any) => (
+                      <option key={s.period} value={s.period}>{s.label} ({s.start} - {s.end})</option>
+                    ))}
                   </select>
                 </div>
               </div>

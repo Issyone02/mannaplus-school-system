@@ -119,9 +119,9 @@ export default function StudentAttendancePage() {
           </div>
           <div className="bg-blue-50 p-4 rounded-lg text-center border-2 border-blue-200">
             <AlertCircle size={28} className="mx-auto text-blue-600 mb-2"/>
-            <p className="text-xs text-blue-600 mb-1">Days Excused</p>
+            <p className="text-xs text-blue-600 mb-1">Days Holiday</p>
             <p className="text-2xl font-bold text-blue-900">
-              <AttendanceCounter studentId={student.id} metric="excused" />
+              <AttendanceCounter studentId={student.id} metric="holiday" />
             </p>
           </div>
           <div className="bg-purple-50 p-4 rounded-lg text-center border-2 border-purple-200">
@@ -160,7 +160,7 @@ export default function StudentAttendancePage() {
                 <div className="w-6 h-6 bg-blue-500 rounded flex items-center justify-center">
                   <AlertCircle size={12} className="text-white"/>
                 </div>
-                <span className="text-sm text-gray-700">Excused</span>
+                <span className="text-sm text-gray-700">Holiday</span>
               </div>
             </div>
           </div>
@@ -171,7 +171,7 @@ export default function StudentAttendancePage() {
 }
 
 // Helper component
-function AttendanceCounter({ studentId, metric }: { studentId: string, metric: 'total' | 'present' | 'absent' | 'late' | 'excused' }) {
+function AttendanceCounter({ studentId, metric }: { studentId: string, metric: 'total' | 'present' | 'absent' | 'late' | 'holiday' }) {
   const [count, setCount] = useState<number | null>(null)
 
   useEffect(() => {
@@ -186,7 +186,7 @@ function AttendanceCounter({ studentId, metric }: { studentId: string, metric: '
         else if (metric === 'present') setCount(data.filter((a: any) => a.status === 'present').length)
         else if (metric === 'absent') setCount(data.filter((a: any) => a.status === 'absent').length)
         else if (metric === 'late') setCount(data.filter((a: any) => a.status === 'late').length)
-        else if (metric === 'excused') setCount(data.filter((a: any) => a.status === 'excused').length)
+        else if (metric === 'holiday') setCount(data.filter((a: any) => a.status === 'holiday').length)
       }
     }
     fetchCount()
