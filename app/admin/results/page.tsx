@@ -962,8 +962,8 @@ export default function ResultsPage() {
                           {deptSubjects.map(s => <option key={s.id} value={s.id}>{s.name} ({s.code})</option>)}
                         </optgroup>
                       )}
-                      {classSubjects.length === 0 && (
-                        <option disabled>No subjects found for this class. Add them in the Subjects tab.</option>
+                      {availableSubjects.length === 0 && (
+                        <option disabled>No subjects offered to this class. Assign offerings in the Subjects tab.</option>
                       )}
                     </>
                   )
