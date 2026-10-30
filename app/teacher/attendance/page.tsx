@@ -274,7 +274,7 @@ function TeacherAttendanceContent() {
 
     // ✅ ADD THIS: Double-check 24-hour policy right before saving
     const now = new Date()
-    const existingRecords = Object.values(attendance).filter(r => r.created_at)
+    const existingRecords = Object.values(attendance).filter((r): r is AttendanceRecord & { created_at: string } => Boolean(r.created_at))
     
     if (existingRecords.length > 0) {
       const earliestRecord = existingRecords.reduce((earliest, current) => {
