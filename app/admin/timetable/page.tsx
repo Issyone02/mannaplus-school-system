@@ -358,7 +358,7 @@ export default function TimetablePage() {
           <tbody>
             {activeSchedule.map((slot, index) => {
               // ✅ Render Break Rows (Spans across all days)
-              if ('break' in slot && slot.break) {
+              if (!('period' in slot)) {
                 return (
                   <tr key={`break-${index}`} className="bg-yellow-50 border-t border-yellow-200">
                     <td colSpan={7} className="p-2 text-center font-bold text-yellow-800 text-sm">
