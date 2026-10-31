@@ -915,7 +915,7 @@ export default function FeeManagementPage() {
                   {/* Quick-select buttons */}
                   <div className="flex gap-2 mb-3 flex-wrap">
                     <button type="button" onClick={() => setStructureForm({...structureForm, class_ids: classes.map(c => c.id)})} className="px-3 py-1 bg-blue-600 text-white text-xs rounded font-bold hover:bg-blue-700">All Classes</button>
-                    <button type="button" onClick={() => setStructureForm({...structureForm, class_ids: classes.filter(c => c.class_name.includes('Primary')).map(c => c.id)})} className="px-3 py-1 bg-green-600 text-white text-xs rounded font-bold hover:bg-green-700">All Primary</button>
+                    <button type="button" onClick={() => setStructureForm({...structureForm, class_ids: classes.filter(c => c.class_name.includes('Basic') || c.class_level === 'Basic').map(c => c.id)})} className="px-3 py-1 bg-green-600 text-white text-xs rounded font-bold hover:bg-green-700">All Basic</button>
                     <button type="button" onClick={() => setStructureForm({...structureForm, class_ids: classes.filter(c => c.class_name.includes('JSS') || c.class_name.includes('SS')).map(c => c.id)})} className="px-3 py-1 bg-purple-600 text-white text-xs rounded font-bold hover:bg-purple-700">All Secondary</button>
                     <button type="button" onClick={() => setStructureForm({...structureForm, class_ids: []})} className="px-3 py-1 bg-gray-300 text-gray-700 text-xs rounded font-bold hover:bg-gray-400">Clear</button>
                   </div>
