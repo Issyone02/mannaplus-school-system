@@ -143,19 +143,32 @@ export default function AttendancePage() {
   }
 
   const handleStatusChange = (studentId: string, status: 'present' | 'absent' | 'late' | 'holiday') => {
-    setAttendance(prev => ({
-      ...prev,
-      [studentId]: {
-        ...prev[studentId],
-        student_id: studentId,
-        class_id: selectedClass,
-        date: selectedDate,
-        status,
-        note: prev[studentId]?.note || '',
+    setAttendance(prev => {
+      const currentRecord = prev[studentId]
+      // ✅ TOGGLE LOGIC: If same status clicked again, clear it (unmark)
+      if (currentRecord?.status === status) {
+        return {
+          ...prev,
+          [studentId]: {
+            ...currentRecord,
+            status: undefined as any, // Clear status
+          }
+        }
       }
-    }))
+      // Otherwise, set new status
+      return {
+        ...prev,
+        [studentId]: {
+          ...currentRecord,
+          student_id: studentId,
+          class_id: selectedClass,
+          date: selectedDate,
+          status,
+          note: currentRecord?.note || '',
+        }
+      }
+    })
   }
-
   const handleNoteChange = (studentId: string, note: string) => {
     setAttendance(prev => ({
       ...prev,
@@ -209,6 +222,13 @@ export default function AttendancePage() {
   }
 
   const saveAllAttendance = async () => {
+    // ✅ BLOCK FUTURE DATES: Prevent marking attendance ahead of current date
+    const todayStr = new Date().toISOString().split('T')[0]
+    if (selectedDate > todayStr) {
+      toast.error('Cannot mark attendance for future dates.')
+      return
+    }
+
     setSaving(true)
     try {
       const now = new Date()
@@ -465,6 +485,7 @@ export default function AttendancePage() {
               type="date" 
               value={selectedDate} 
               onChange={(e) => setSelectedDate(e.target.value)}
+              max={new Date().toISOString().split('T')[0]} // ✅ Block future dates
               className="p-2 border rounded text-gray-900 w-full md:w-auto"
             />
           </div>
