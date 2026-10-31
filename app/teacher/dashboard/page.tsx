@@ -12,7 +12,8 @@ interface Teacher {
   id: string
   full_name: string
   email: string
-  form_class_id?: string
+  form_class_id?: string // Legacy single ID
+  form_class_ids?: string[] // ✅ NEW: Array of IDs
   subjects?: string[]
 }
 
@@ -54,10 +55,10 @@ export default function TeacherDashboardPage() {
       const email = user?.emailAddresses[0]?.emailAddress
       if (!email) return
 
-      // 1. Fetch teacher info (includes form_class_id and subjects)
+      // 1. Fetch teacher info (NOW INCLUDES form_class_ids ARRAY)
       const { data: teacherData } = await supabase
         .from('teachers')
-        .select('id, full_name, email, form_class_id, subjects')
+        .select('id, full_name, email, form_class_id, form_class_ids, subjects')
         .eq('email', email)
         .single()
 
@@ -75,16 +76,26 @@ export default function TeacherDashboardPage() {
         .select('*')
         .eq('teacher_id', teacherData.id)
 
-      // 3. Calculate unique classes from BOTH form_class_id and assignments
+      // 3. ✅ CALCULATE UNIQUE CLASSES FROM ALL SOURCES (Multi-class support)
       const classIds = new Set<string>()
+      
+      // Source A: Legacy single form class
       if (teacherData.form_class_id) {
         classIds.add(teacherData.form_class_id)
       }
+      
+      // Source B: New multi-form classes array
+      if (teacherData.form_class_ids && teacherData.form_class_ids.length > 0) {
+        teacherData.form_class_ids.forEach((id: string) => classIds.add(id)) // ✅ Explicit type added
+      }
+      
+      // Source C: Subject assignments table
       if (assignmentsData) {
         assignmentsData.forEach((a: any) => {
           if (a.class_id) classIds.add(a.class_id)
         })
       }
+      
       const uniqueClasses = Array.from(classIds)
       
       // 4. Fetch REAL total students in assigned classes
@@ -101,24 +112,35 @@ export default function TeacherDashboardPage() {
       // 5. Enrich assignments with readable class names
       let displayAssignments = assignmentsData || []
       
-      // If teacher is a form teacher but not in assignments table, add it
-      if (teacherData.form_class_id && !displayAssignments.some((a: any) => a.class_id === teacherData.form_class_id)) {
-        const { data: classData } = await supabase
-          .from('classes')
-          .select('class_name, arm, department')
-          .eq('id', teacherData.form_class_id)
-          .single()
-        
-        if (classData) {
-          const className = `${classData.class_name} ${classData.arm ? `(${classData.arm})` : ''} ${classData.department ? `- ${classData.department}` : ''}`
-          displayAssignments.push({
-            id: 'form-class-' + teacherData.form_class_id,
-            class_id: teacherData.form_class_id,
-            subject_name: 'Form Teacher',
-            term: 'Current',
-            session: 'Current',
-            class_name: className
-          })
+      // ✅ HANDLE MULTIPLE FORM CLASSES (Legacy + New Array)
+      const allFormClassIds = [
+        ...(teacherData.form_class_id ? [teacherData.form_class_id] : []),
+        ...(teacherData.form_class_ids || [])
+      ]
+      
+      // Deduplicate just in case
+      const uniqueFormIds = Array.from(new Set(allFormClassIds))
+      
+      for (const fcId of uniqueFormIds) {
+        // Only add if this specific class isn't already listed as an assignment
+        if (!displayAssignments.some((a: any) => a.class_id === fcId)) {
+          const { data: classData } = await supabase
+            .from('classes')
+            .select('class_name, arm, department')
+            .eq('id', fcId)
+            .single()
+          
+          if (classData) {
+            const className = `${classData.class_name} ${classData.arm ? `(${classData.arm})` : ''} ${classData.department ? `- ${classData.department}` : ''}`
+            displayAssignments.push({
+              id: 'form-class-' + fcId,
+              class_id: fcId,
+              subject_name: 'Form Teacher',
+              term: 'Current',
+              session: 'Current',
+              class_name: className
+            })
+          }
         }
       }
 

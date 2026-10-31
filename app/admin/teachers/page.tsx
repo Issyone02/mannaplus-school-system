@@ -16,8 +16,9 @@ interface Teacher {
   phone?: string;
   qualification?: string;
   subjects: string[];
-  form_class_id?: string;
-  form_class_name?: string;
+  form_class_id?: string; // ✅ Kept for backward compat during transition
+  form_class_ids?: string[]; // ✅ NEW: Multi-select support
+  form_class_names?: string[]; // ✅ Display helper for cards
   joined_date: string;
   active: boolean;
   created_at: string;
@@ -54,7 +55,8 @@ export default function TeachersPage() {
     phone: '',
     qualification: '',
     subjects: [] as string[],
-    form_class_id: '',
+    form_class_id: '', // Legacy field
+    form_class_ids: [] as string[], // ✅ NEW: Array storage
     joined_date: new Date().toISOString().split('T')[0],
     create_portal_account: false,
     user_email: '',
@@ -103,7 +105,7 @@ export default function TeachersPage() {
     }
   };
 
-  // ✅ FETCH TEACHERS WITH DYNAMIC CLASS FORMATTING
+    // ✅ FETCH TEACHERS WITH DYNAMIC CLASS FORMATTING (MULTI-CLASS SUPPORT)
   const fetchTeachers = async () => {
     try {
       const { data, error } = await supabase.from('teachers').select('*').order('full_name');
@@ -111,11 +113,26 @@ export default function TeachersPage() {
       
       // Format class names with department information
       const enriched = (data || []).map((t: any) => {
-        const classObj = classes.find(c => c.id === t.form_class_id);
-        let className = classObj?.class_name || 'Unassigned';
-        if (classObj?.arm) className += ` (${classObj.arm})`;
-        if (classObj?.department) className += ` - ${classObj.department}`;
-        return { ...t, form_class_name: className };
+        // Prefer form_class_ids array, fallback to legacy form_class_id
+        const idsToResolve: string[] = t.form_class_ids?.length > 0 
+          ? t.form_class_ids 
+          : (t.form_class_id ? [t.form_class_id] : []);
+        
+        const resolvedNames = idsToResolve.map((id: string) => {
+          const cls = classes.find(c => c.id === id);
+          if (!cls) return null;
+          let name = cls.class_name;
+          if (cls.arm) name += ` (${cls.arm})`;
+          if (cls.department) name += ` - ${cls.department}`;
+          return name;
+        }).filter(Boolean) as string[];
+
+        return { 
+          ...t, 
+          form_class_names: resolvedNames.length > 0 ? resolvedNames : ['Unassigned'],
+          // Keep singular for backwards-compat display if needed elsewhere
+          form_class_name: resolvedNames.join(', ') || 'Unassigned' 
+        };
       });
       
       setTeachers(enriched);
@@ -190,7 +207,7 @@ export default function TeachersPage() {
         if (user) userId = user.id;
       }
 
-      // ✅ PREPARE TEACHER DATA
+      // ✅ PREPARE TEACHER DATA WITH MULTI-CLASS SUPPORT
       const teacherData = {
         staff_id: formData.staff_id,
         full_name: formData.full_name,
@@ -198,7 +215,8 @@ export default function TeachersPage() {
         phone: formData.phone || null,
         qualification: formData.qualification || null,
         subjects: formData.subjects,
-        form_class_id: formData.form_class_id || null,
+        form_class_id: formData.form_class_ids.length === 1 ? formData.form_class_ids[0] : null, // Legacy sync
+        form_class_ids: formData.form_class_ids, // ✅ PRIMARY FIELD NOW
         joined_date: formData.joined_date,
         user_id: userId,
         active: formData.active,
@@ -230,15 +248,19 @@ export default function TeachersPage() {
         qualification: '',
         subjects: [], 
         form_class_id: '', 
+        form_class_ids: [], 
         joined_date: new Date().toISOString().split('T')[0],
         create_portal_account: false, 
         user_email: '', 
         active: true, 
         user_id: null,
       });
-      setEditingTeacher(null);
-      fetchTeachers();
+      
+      fetchTeachers(); // ✅ CRITICAL: Refresh list after save
+      setEditingTeacher(null); // ✅ Clear edit state
+      
     } catch (error: any) {
+      console.error('Submit error:', error);
       toast.error('Failed: ' + error.message);
     }
   };
@@ -254,6 +276,9 @@ export default function TeachersPage() {
       qualification: teacher.qualification || '',
       subjects: teacher.subjects || [],
       form_class_id: teacher.form_class_id || '',
+      form_class_ids: (teacher.form_class_ids && teacher.form_class_ids.length > 0)
+        ? teacher.form_class_ids
+        : (teacher.form_class_id ? [teacher.form_class_id] : []), // ✅ Explicit null check satisfies TS
       joined_date: teacher.joined_date?.split('T')[0] || '',
       create_portal_account: !!teacher.user_id,
       user_email: teacher.user_id ? (users.find(u => u.id === teacher.user_id)?.email || '') : '',
@@ -342,6 +367,7 @@ export default function TeachersPage() {
               qualification: '', 
               subjects: [], 
               form_class_id: '', 
+              form_class_ids: [], // ✅ ADDED THIS LINE
               joined_date: new Date().toISOString().split('T')[0],
               create_portal_account: false, 
               user_email: '', 
@@ -416,10 +442,18 @@ export default function TeachersPage() {
                       <span>{teacher.qualification}</span>
                     </div>
                   )}
-                  {teacher.form_class_name && (
-                    <div className="flex items-center text-sm text-gray-700">
-                      <Briefcase size={14} className="mr-2 text-blue-600" />
-                      <span>Form Teacher: <strong>{teacher.form_class_name}</strong></span>
+                  {(teacher.form_class_names || []).length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-bold text-gray-600 flex items-center gap-1">
+                        <Briefcase size={12} className="text-blue-600"/> FORM CLASSES ASSIGNED:
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {(teacher.form_class_names || []).map((name, idx) => (
+                          <span key={idx} className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] rounded border border-blue-200">
+                            {name}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -485,17 +519,35 @@ export default function TeachersPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                   <div className="md:col-span-2"><label className="block text-sm font-bold text-gray-900 mb-1">Qualification</label><input type="text" value={formData.qualification} onChange={(e) => setFormData({...formData, qualification: e.target.value})} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium" placeholder="e.g., B.Ed, M.Sc Mathematics" /></div>
                   <div><label className="block text-sm font-bold text-gray-900 mb-1">Joined Date</label><input type="date" value={formData.joined_date} onChange={(e) => setFormData({...formData, joined_date: e.target.value})} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium" /></div>
-                  <div>
-                    <label className="block text-sm font-bold text-gray-900 mb-1">Form Teacher For</label>
-                    <select value={formData.form_class_id} onChange={(e) => setFormData({...formData, form_class_id: e.target.value})} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium">
-                      <option value="">Not a form teacher</option>
-                      {classes.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.class_name} {c.arm ? `(${c.arm})` : ''} {c.department ? `- ${c.department}` : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <div className="md:col-span-2 lg:col-span-4">
+  <label className="block text-sm font-bold text-gray-900 mb-1">Form Teacher For (Select Multiple)</label>
+  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-48 overflow-y-auto p-3 border-2 border-gray-200 rounded-lg bg-gray-50">
+    {classes.map((c) => {
+      const isChecked = formData.form_class_ids?.includes(c.id);
+      return (
+        <label key={c.id} className={`flex items-center space-x-2 cursor-pointer hover:bg-white p-2 rounded transition-colors ${isChecked ? 'bg-blue-50 ring-1 ring-blue-200' : ''}`}>
+          <input 
+            type="checkbox" 
+            checked={!!isChecked}
+            onChange={() => {
+              setFormData(prev => ({
+                ...prev,
+                form_class_ids: prev.form_class_ids?.includes(c.id)
+                  ? prev.form_class_ids.filter(id => id !== c.id) // Uncheck
+                  : [...(prev.form_class_ids || []), c.id]         // Check
+              }));
+            }}
+            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500" 
+          />
+          <span className="text-xs font-medium text-gray-700 leading-tight">
+            {c.class_name} {c.arm ? `(${c.arm})` : ''} {c.department ? `- ${c.department}` : ''}
+          </span>
+        </label>
+      );
+    })}
+  </div>
+  <p className="text-xs text-gray-500 mt-1">Tip: Select all arms (e.g., SS1 Sci/Art/Comm) if managing one combined form class.</p>
+</div>
                 </div>
               </div>
 
