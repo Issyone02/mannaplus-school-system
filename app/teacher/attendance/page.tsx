@@ -204,21 +204,38 @@ function TeacherAttendanceContent() {
   }
 
   const handleStatusChange = (studentId: string, status: 'present' | 'absent' | 'late' | 'holiday') => {
-    if (isLocked) {
-      toast.error('Attendance is locked and cannot be modified')
+    if (isLocked || isWeekend) {
+      toast.error(isWeekend ? 'Cannot modify attendance on weekends.' : 'Attendance is locked and cannot be modified')
       return
     }
 
-    setAttendance(prev => ({
-      ...prev,
-      [studentId]: {
-        ...prev[studentId],
-        student_id: studentId,
-        date: selectedDate,
-        status,
-        marked_by: 'teacher'
+    setAttendance(prev => {
+      const currentRecord = prev[studentId]
+      
+      // ✅ TOGGLE LOGIC: If same status clicked again, clear it (unmark)
+      if (currentRecord?.status === status) {
+        return {
+          ...prev,
+          [studentId]: {
+            ...currentRecord,
+            status: undefined as any, // Clear status → unmarked state
+          }
+        }
       }
-    }))
+      
+      // Otherwise, set new status
+      return {
+        ...prev,
+        [studentId]: {
+          ...currentRecord,
+          student_id: studentId,
+          date: selectedDate,
+          status,
+          note: currentRecord?.note || '',
+          marked_by: 'teacher'
+        }
+      }
+    })
   }
 
   const handleNoteChange = (studentId: string, note: string) => {
@@ -275,12 +292,19 @@ function TeacherAttendanceContent() {
   }
 
   const saveAllAttendance = async () => {
+    // ✅ BLOCK FUTURE DATES: Prevent marking attendance ahead of current date
+    const todayStr = new Date().toISOString().split('T')[0]
+    if (selectedDate > todayStr) {
+      toast.error('Cannot mark attendance for future dates.')
+      return
+    }
+
     if (isLocked) {
       toast.error('Attendance is locked and cannot be saved')
       return
     }
 
-    // ✅ ADD THIS: Double-check 24-hour policy right before saving
+    // ✅ Double-check 24-hour policy right before saving
     const now = new Date()
     const existingRecords = Object.values(attendance).filter((r): r is AttendanceRecord & { created_at: string } => Boolean(r.created_at))
     
@@ -472,6 +496,7 @@ function TeacherAttendanceContent() {
               type="date" 
               value={selectedDate} 
               onChange={(e) => setSelectedDate(e.target.value)}
+              max={new Date().toISOString().split('T')[0]} // ✅ Block future dates
               className="p-2 border rounded text-gray-900 bg-white"
             />
           </div>
