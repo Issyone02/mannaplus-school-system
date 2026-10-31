@@ -8,17 +8,7 @@ import IdleTimeout from '@/components/IdleTimeout';
 import { Menu } from 'lucide-react';
 import { UserButton } from '@clerk/nextjs'
 import NotificationBell from '@/components/NotificationBell'
-
-
-/**
- * ✅ Admin access list — single source of truth (same pattern as app/dashboard/page.tsx).
- * Instant & network-free: no Supabase query, so no timeouts or flaky redirects.
- * Data-level security remains enforced by Supabase RLS policies.
- */
-const ADMIN_EMAILS = [
-  'olalereisaiah68@gmail.com',
-  // Add more admin emails here as needed
-];
+import { fetchUserRowByClerkId } from '@/lib/fetchUserRow' // ✅ Import the helper used by Teacher Layout
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { isSignedIn, isLoaded, user } = useUser();
@@ -26,17 +16,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    if (!isLoaded) return; // keep spinner until Clerk finishes loading
+    const checkRole = async () => {
+      if (!isLoaded || !user) {
+        setChecking(false);
+        return;
+      }
 
-    if (!user) {
-      setIsAuthorized(false);
+      // ✅ LIVE SUPABASE CHECK: Reads users.role dynamically instead of hardcoded emails
+      const { data } = await fetchUserRowByClerkId(user.id, '*', user.emailAddresses[0]?.emailAddress)
+      
+      setIsAuthorized(data?.role === 'admin');
       setChecking(false);
-      return;
-    }
+    };
 
-    const userEmail = user.emailAddresses[0]?.emailAddress || '';
-    setIsAuthorized(ADMIN_EMAILS.includes(userEmail));
-    setChecking(false);
+    checkRole();
   }, [isLoaded, user]);
 
   if (!isLoaded || checking) {

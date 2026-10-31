@@ -175,9 +175,15 @@ export default function UserManagementPage() {
   
   const handleUpdateRole = async (userId: string, newRole: UserRole) => {
     try {
-      const { error } = await supabase.from('users').update({ role: newRole }).eq('id', userId);
-      if (error) throw error;
-      toast.success('Role updated to ' + newRole);
+      const token = await getToken(); // ✅ already imported via useAuth earlier
+      const res = await fetch(`/api/users/${userId}/role`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ role: newRole }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Failed');
+      toast.success(`Role updated to ${newRole}. Access is effective immediately.`);
       fetchUsers();
     } catch (error: any) {
       toast.error('Failed: ' + error.message);

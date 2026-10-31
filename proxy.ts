@@ -13,10 +13,19 @@ const isPublicRoute = createRouteMatcher([
   "/sign-up(.*)",
 ]);
 
-export default clerkMiddleware((auth, request) => {
-  // Your app relies on Layouts (like app/admin/layout.tsx) to handle login redirects.
-  // We intentionally do NOT call auth.protect() here to avoid breaking your existing layout logic.
-  // This just ensures Clerk is aware of the public routes (like /verify) and skips them.
+const isAdminRoute = createRouteMatcher(['/admin(.*)']);
+
+export default clerkMiddleware(async (auth, request) => {
+  if (!isPublicRoute(request)) {
+    await auth.protect(); // enforce authentication everywhere except public pages
+  }
+  // Extra layer: admins must actually BE logged in to reach /admin
+  if (isAdminRoute(request)) {
+    const { userId } = await auth();
+    if (!userId) {
+      await auth.redirectToSignIn({ redirectUrl: '/' });
+    }
+  }
 });
 
 export const config = {

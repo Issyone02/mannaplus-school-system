@@ -23,7 +23,7 @@ export default function Footer() {
             <p className="text-green-400 font-medium italic mb-4">"Grooming the Future Leaders"</p>
             <div className="space-y-2 text-gray-400 text-sm">
               <p>📍 34, Orisun Ibukun Avenue, Arinko Sango Ota, Ogun State</p>
-              <p>📞 +234 342 872 28 • +234 803 496 7499</p>
+              <p>📞 +234 803 428 7228 • +234 803 496 7499</p>
               <p>✉️ mannapluscollege@school.com</p>
             </div>
           </div>
