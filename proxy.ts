@@ -8,29 +8,21 @@ const isPublicRoute = createRouteMatcher([
   "/news(.*)",
   "/admissions(.*)",
   "/contact(.*)",
-  "/verify(.*)", // ✅ The new public verification page
+  "/verify(.*)", // ✅ Public verification page
   "/sign-in(.*)",
   "/sign-up(.*)",
 ]);
 
-const isAdminRoute = createRouteMatcher(['/admin(.*)']);
-
 export default clerkMiddleware(async (auth, request) => {
+  // Protect all non-public routes by requiring a valid session
   if (!isPublicRoute(request)) {
-    await auth.protect(); // enforce authentication everywhere except public pages
-  }
-  // Extra layer: admins must actually BE logged in to reach /admin
-  if (isAdminRoute(request)) {
-    const { userId } = await auth();
-    if (!userId) {
-      await auth.redirectToSignIn({ redirectUrl: '/' });
-    }
+    await auth.protect();
   }
 });
 
 export const config = {
   matcher: [
-    // Skip Next.js internals and all static files
+    // Skip Next.js internals and static files
     "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
     // Always run for API routes
     "/(api|trpc)(.*)",
