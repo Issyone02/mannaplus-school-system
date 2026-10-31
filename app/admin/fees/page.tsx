@@ -47,6 +47,7 @@ interface ClassItem {
   class_name: string
   arm: string | null
   department: string | null
+  class_level: string // ✅ Added to support level-based filtering
 }
 
 export default function FeeManagementPage() {
@@ -127,7 +128,7 @@ export default function FeeManagementPage() {
   const fetchClasses = async () => {
     const { data, error } = await supabase
       .from('classes')
-      .select('id, class_name, arm, department')
+      .select('id, class_name, arm, department, class_level') // ✅ Added class_level
       .order('class_name')
     
     if (error) console.error('Failed to load classes', error)
