@@ -55,6 +55,14 @@ function TeacherAttendanceContent() {
   const [selectedClass, setSelectedClass] = useState('')
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
+  
+  // ✅ WEEKEND DETECTION: Check if selectedDate is Saturday or Sunday
+  const getDayOfWeek = (dateString: string): number => {
+    const date = new Date(dateString + 'T00:00:00')
+    return date.getDay() // 0=Sunday, 6=Saturday
+  }
+  const isWeekend = getDayOfWeek(selectedDate) === 0 || getDayOfWeek(selectedDate) === 6
+  
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [isLocked, setIsLocked] = useState(false)
@@ -378,16 +386,30 @@ function TeacherAttendanceContent() {
           </div>
           <button 
             onClick={saveAllAttendance}
-            disabled={saving || isLocked}
+            disabled={saving || isLocked || isWeekend}
             className={`flex items-center gap-2 px-4 py-2 rounded font-bold ${
-              isLocked 
+              (isLocked || isWeekend)
                 ? 'bg-gray-400 cursor-not-allowed' 
                 : 'bg-green-600 hover:bg-green-700'
             } text-white`}
           >
-            <Save size={16}/> {saving ? 'Saving...' : 'Save'}
+            <Save size={16}/> {isWeekend ? 'Weekend - Disabled' : saving ? 'Saving...' : 'Save'}
           </button>
         </div>
+
+        {/* ✅ WEEKEND WARNING BANNER */}
+        {isWeekend && (
+          <div className="bg-orange-50 border-2 border-orange-300 rounded-lg p-4 mb-6 flex items-start gap-3">
+            <AlertCircle size={24} className="text-orange-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-bold text-orange-900 text-lg">Weekend Detected</h3>
+              <p className="text-sm text-orange-800 mt-1">
+                The selected date ({new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}) falls on a weekend. 
+                Attendance marking is disabled to prevent errors. Please select a school day (Monday–Friday).
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Lock Policy Warning */}
         <div className={`rounded-lg p-4 mb-6 border-2 ${
@@ -466,15 +488,23 @@ function TeacherAttendanceContent() {
           <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => handleBulkMark('present')}
-              disabled={isLocked || students.length === 0}
-              className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isLocked || isWeekend || students.length === 0}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-colors ${
+                (isLocked || isWeekend) 
+                  ? 'bg-gray-400 cursor-not-allowed' 
+                  : 'bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed'
+              } text-white`}
             >
               <CheckCircle size={16} /> Mark All Present
             </button>
             <button
               onClick={() => handleBulkMark('holiday')}
-              disabled={isLocked || students.length === 0}
-              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isLocked || isWeekend || students.length === 0}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-colors ${
+                (isLocked || isWeekend) 
+                  ? 'bg-gray-400 cursor-not-allowed' 
+                  : 'bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed'
+              } text-white`}
             >
               <AlertCircle size={16} /> Mark All Holiday
             </button>
@@ -503,29 +533,29 @@ function TeacherAttendanceContent() {
                       <div className="flex gap-2 justify-center flex-wrap">
                         <button
                           onClick={() => handleStatusChange(student.id, 'present')}
-                          disabled={isLocked}
-                          className={getStatusButtonClass(student.id, 'present')}
+                          disabled={isLocked || isWeekend}
+                          className={`${getStatusButtonClass(student.id, 'present')} ${(isLocked || isWeekend) ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
                         >
                           <CheckCircle size={14} className="inline mr-1"/> Present
                         </button>
                         <button
                           onClick={() => handleStatusChange(student.id, 'absent')}
-                          disabled={isLocked}
-                          className={getStatusButtonClass(student.id, 'absent')}
+                          disabled={isLocked || isWeekend}
+                          className={`${getStatusButtonClass(student.id, 'absent')} ${(isLocked || isWeekend) ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
                         >
                           <XCircle size={14} className="inline mr-1"/> Absent
                         </button>
                         <button
                           onClick={() => handleStatusChange(student.id, 'late')}
-                          disabled={isLocked}
-                          className={getStatusButtonClass(student.id, 'late')}
+                          disabled={isLocked || isWeekend}
+                          className={`${getStatusButtonClass(student.id, 'late')} ${(isLocked || isWeekend) ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
                         >
                           <Clock size={14} className="inline mr-1"/> Late
                         </button>
                         <button
                           onClick={() => handleStatusChange(student.id, 'holiday')}
-                          disabled={isLocked}
-                          className={getStatusButtonClass(student.id, 'holiday')}
+                          disabled={isLocked || isWeekend}
+                          className={`${getStatusButtonClass(student.id, 'holiday')} ${(isLocked || isWeekend) ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
                         >
                           <AlertCircle size={14} className="inline mr-1"/> Holiday
                         </button>
@@ -547,10 +577,10 @@ function TeacherAttendanceContent() {
                         type="text"
                         value={attendance[student.id]?.note || ''}
                         onChange={(e) => handleNoteChange(student.id, e.target.value)}
-                        disabled={isLocked}
-                        placeholder={isLocked ? 'Locked' : 'Add note...'}
+                        disabled={isLocked || isWeekend}
+                        placeholder={isWeekend ? 'Weekend' : isLocked ? 'Locked' : 'Add note...'}
                         className={`w-full p-2 border rounded text-sm ${
-                          isLocked 
+                          (isLocked || isWeekend)
                             ? 'bg-gray-200 cursor-not-allowed text-gray-500' 
                             : 'bg-white text-gray-900'
                         }`}

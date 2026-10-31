@@ -40,11 +40,20 @@ interface AttendanceRecord {
 
 export default function AttendancePage() {
   const { user } = useUser()
+  
   const [students, setStudents] = useState<Student[]>([])
   const [classes, setClasses] = useState<ClassItem[]>([])
   const [attendance, setAttendance] = useState<Record<string, AttendanceRecord>>({})
   const [selectedClass, setSelectedClass] = useState('')
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
+
+  // ✅ WEEKEND DETECTION: Moved AFTER selectedDate declaration
+  const getDayOfWeek = (dateString: string): number => {
+    const date = new Date(dateString + 'T00:00:00')
+    return date.getDay() // 0=Sunday, 6=Saturday
+  }
+  
+  const isWeekend = getDayOfWeek(selectedDate) === 0 || getDayOfWeek(selectedDate) === 6
   const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -352,10 +361,12 @@ export default function AttendancePage() {
           </button>
           <button 
             onClick={saveAllAttendance} 
-            disabled={saving}
-            className="flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2 rounded font-bold hover:bg-green-700 disabled:opacity-50 flex-1 md:flex-none"
+            disabled={saving || isWeekend}
+            className={`flex items-center justify-center gap-2 px-4 py-2 rounded font-bold disabled:opacity-50 flex-1 md:flex-none ${
+              isWeekend ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'
+            } text-white`}
           >
-            <Save size={18}/> {saving ? 'Saving...' : 'Save All'}
+            <Save size={18}/> {isWeekend ? 'Weekend - Disabled' : saving ? 'Saving...' : 'Save All'}
           </button>
         </div>
       </div>
@@ -369,6 +380,20 @@ export default function AttendancePage() {
           </div>
         </div>
       </div>
+
+      {/* ✅ WEEKEND WARNING BANNER */}
+      {isWeekend && (
+        <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4 md:p-6 mb-6 flex items-start gap-3">
+          <Calendar size={24} className="text-yellow-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <h3 className="font-bold text-yellow-900 text-lg">Weekend Detected</h3>
+            <p className="text-sm text-yellow-800 mt-1">
+              The selected date ({new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}) falls on a weekend. 
+              Attendance marking is disabled to prevent errors. Please select a school day (Monday–Friday).
+            </p>
+          </div>
+        </div>
+      )}
 
       {!isUnlocked && Object.values(attendance).some(r => r.is_locked) && (
         <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4 md:p-6 mb-6">
@@ -470,15 +495,23 @@ export default function AttendancePage() {
         <div className="flex gap-2 flex-wrap">
           <button
             onClick={() => handleBulkMark('present')}
-            disabled={filteredStudents.length === 0}
-            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isWeekend || filteredStudents.length === 0}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-colors ${
+              isWeekend 
+                ? 'bg-gray-400 cursor-not-allowed' 
+                : 'bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed'
+            } text-white`}
           >
             <CheckCircle size={16} /> Mark All Present
           </button>
           <button
             onClick={() => handleBulkMark('holiday')}
-            disabled={filteredStudents.length === 0}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isWeekend || filteredStudents.length === 0}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-colors ${
+              isWeekend 
+                ? 'bg-gray-400 cursor-not-allowed' 
+                : 'bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed'
+            } text-white`}
           >
             <AlertCircle size={16} /> Mark All Holiday
           </button>
@@ -550,17 +583,17 @@ export default function AttendancePage() {
                               <button
                                 key={option.value}
                                 onClick={() => handleStatusChange(student.id, option.value)}
-                                disabled={isLocked}
+                                disabled={isLocked || isWeekend}
                                 className={`flex items-center gap-1 px-2 md:px-3 py-1 md:py-1.5 rounded-full text-[10px] md:text-xs font-bold border-2 transition-all ${
                                   isActive 
                                     ? `${option.color} ring-2 ring-offset-1 ring-gray-400` 
                                     : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
-                                } ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                title={isLocked ? 'Locked - Cannot edit' : option.label}
+                                } ${(isLocked || isWeekend) ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
+                                title={isWeekend ? 'Weekend - Disabled' : isLocked ? 'Locked - Cannot edit' : option.label}
                               >
                                 <Icon size={14}/>
                                 <span className="hidden sm:inline">{option.label}</span>
-                                {isLocked && isActive && <Lock size={10} className="ml-1"/>}
+                                {(isLocked || isWeekend) && isActive && <Lock size={10} className="ml-1"/>}
                               </button>
                             )
                           })}
@@ -582,10 +615,10 @@ export default function AttendancePage() {
                           type="text"
                           value={record?.note || ''}
                           onChange={(e) => handleNoteChange(student.id, e.target.value)}
-                          disabled={isLocked}
-                          placeholder={isLocked ? 'Locked' : 'Reason...'}
+                          disabled={isLocked || isWeekend}
+                          placeholder={isWeekend ? 'Weekend' : isLocked ? 'Locked' : 'Reason...'}
                           className={`w-full p-2 border rounded text-sm text-gray-900 focus:ring-2 focus:ring-blue-500 ${
-                            isLocked ? 'bg-gray-100 cursor-not-allowed' : ''
+                            (isLocked || isWeekend) ? 'bg-gray-100 cursor-not-allowed' : ''
                           }`}
                         />
                       </td>
