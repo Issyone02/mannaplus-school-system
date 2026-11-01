@@ -30,7 +30,15 @@ interface Student {
   id: string;
   full_name: string;
   admission_number: string;
+  class_id?: string;
   class_name?: string;
+}
+
+interface ClassItem {
+  id: string;
+  class_name: string;
+  arm: string | null;
+  department: string | null;
 }
 
 interface AppUser {
@@ -44,6 +52,9 @@ export default function ParentsPage() {
   const [parents, setParents] = useState<Parent[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
+  const [classes, setClasses] = useState<ClassItem[]>([]);
+  const [classFilter, setClassFilter] = useState(''); // Class dropdown value
+  const [childSearch, setChildSearch] = useState(''); // Live name search value
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -73,8 +84,18 @@ export default function ParentsPage() {
     fetchParents();
     fetchStudents();
     fetchUsers();
+    fetchClasses();
   }, []);
 
+  // FETCH CLASSES for the class filter dropdown
+  const fetchClasses = async () => {
+    const { data } = await supabase
+      .from('classes')
+      .select('id, class_name, arm, department')
+      .order('class_level')
+      .order('class_name');
+    setClasses(data || []);
+  };
   const fetchParents = async () => {
     try {
       const { data, error } = await supabase.from('parents').select('*').order('full_name');
@@ -207,6 +228,8 @@ export default function ParentsPage() {
       active: parent.active,
       user_id: parent.user_id || null,
     });
+    setClassFilter('');
+    setChildSearch('');
     setShowModal(true);
   };
 
@@ -242,6 +265,24 @@ export default function ParentsPage() {
     }));
   };
 
+  // ✅ COMBINED FILTER: class dropdown + live search (display-only; never clears ticked children)
+  const filteredChildren = students.filter((s) => {
+    const matchesClass = !classFilter || s.class_id === classFilter;
+    const q = childSearch.trim().toLowerCase();
+    const matchesSearch =
+      !q ||
+      s.full_name.toLowerCase().includes(q) ||
+      s.admission_number.toLowerCase().includes(q);
+    return matchesClass && matchesSearch;
+  });
+
+  // ✅ Small helper to show a class tag beside each student name
+  const formatClassTag = (classId: string) => {
+    const cls = classes.find((c) => c.id === classId);
+    if (!cls) return '';
+    return `${cls.class_name}${cls.arm ? ` (${cls.arm})` : ''}`;
+  };
+
   // ✅ FIXED: Safely handle undefined or null studentIds
   const getLinkedStudents = (studentIds: string[] | undefined | null) => {
     if (!studentIds || !Array.isArray(studentIds)) return [];
@@ -274,7 +315,9 @@ export default function ParentsPage() {
               students_ids: [], create_portal_account: false, user_email: '', active: true,
               user_id: null,
             });
-            setShowModal(true);
+            setClassFilter('');
+            setChildSearch('');
+            setShowModal(true); 
           }}
           className="flex items-center space-x-2 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 font-bold"
         >
@@ -435,18 +478,60 @@ export default function ParentsPage() {
               {/* Student Linking */}
               <div>
                 <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center"><Users size={20} className="mr-2" /> Link to Children (Students)</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-4 border-2 border-gray-200 rounded-lg bg-gray-50">
-                  {students.map((student) => (
-                    <label key={student.id} className="flex items-center space-x-2 cursor-pointer hover:bg-white p-2 rounded">
-                      <input type="checkbox" checked={formData.students_ids.includes(student.id)} onChange={() => handleStudentToggle(student.id)} className="w-4 h-4 text-purple-600 rounded" />
-                      <div>
-                        <span className="text-sm text-gray-700 font-medium">{student.full_name}</span>
-                        <span className="text-xs text-gray-500 ml-2">({student.admission_number})</span>
-                      </div>
-                    </label>
-                  ))}
+
+                {/* ✅ FILTER ROW: Class dropdown + live name search */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 mb-1">Filter by Class</label>
+                    <select
+                      value={classFilter}
+                      onChange={(e) => setClassFilter(e.target.value)}
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-gray-900 font-medium bg-white"
+                    >
+                      <option value="">All Classes</option>
+                      {classes.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.class_name}{c.arm ? ` (${c.arm})` : ''}{c.department ? ` - ${c.department}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 mb-1">Search Student</label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+                      <input
+                        type="text"
+                        value={childSearch}
+                        onChange={(e) => setChildSearch(e.target.value)}
+                        placeholder="Type name or admission no..."
+                        className="w-full pl-9 pr-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-gray-900 font-medium bg-white"
+                      />
+                    </div>
+                  </div>
                 </div>
-                <p className="text-xs text-gray-600 mt-2">Selected: <span className="font-bold text-purple-600">{formData.students_ids.length}</span> children</p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-4 border-2 border-gray-200 rounded-lg bg-gray-50">
+                  {filteredChildren.length === 0 ? (
+                    <p className="col-span-full text-center text-sm text-gray-500 py-4">No students match your filter.</p>
+                  ) : (
+                    filteredChildren.map((student) => (
+                      <label key={student.id} className="flex items-center space-x-2 cursor-pointer hover:bg-white p-2 rounded">
+                        <input type="checkbox" checked={formData.students_ids.includes(student.id)} onChange={() => handleStudentToggle(student.id)} className="w-4 h-4 text-purple-600 rounded" />
+                        <div>
+                          <span className="text-sm text-gray-700 font-medium">{student.full_name}</span>
+                          <span className="text-xs text-gray-500 ml-2">({student.admission_number})</span>
+                          {student.class_id && (
+                            <span className="text-[10px] text-purple-600 ml-2">• {formatClassTag(student.class_id)}</span>
+                          )}
+                        </div>
+                      </label>
+                    ))
+                  )}
+                </div>
+                <p className="text-xs text-gray-600 mt-2">
+                  Showing <span className="font-bold text-gray-900">{filteredChildren.length}</span> of {students.length} students • Selected: <span className="font-bold text-purple-600">{formData.students_ids.length}</span> children
+                </p>
               </div>
 
               {/* Portal Account Section */}
