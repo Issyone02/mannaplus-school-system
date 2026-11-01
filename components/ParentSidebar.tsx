@@ -8,12 +8,14 @@ import {
   Bell,
   LogOut,
   X,
+  MessageCircleQuestion, // ✅ NEW ICON FOR CONTACT ADMIN
 } from 'lucide-react';
 import { useClerk } from '@clerk/nextjs';
 
 // ✅ Only link to pages that actually exist
 const menuItems = [
   { name: 'Dashboard', href: '/parent', icon: LayoutDashboard },
+  { name: 'Contact Admin', href: '/parent/feedback', icon: MessageCircleQuestion }, // ✅ NEW ITEM
   { name: 'Notices', href: '/parent/notices', icon: Bell },
 ];
 

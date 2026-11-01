@@ -20,6 +20,7 @@ import {
   ArrowRightLeft,
   MailOpen,
   Newspaper,
+  MessageSquareWarning, // ✅ NEW ICON FOR FEEDBACK INBOX
 } from 'lucide-react';
 import { useClerk } from '@clerk/nextjs';
 
@@ -37,6 +38,7 @@ const menuItems = [
   { name: 'Timetable', href: '/admin/timetable', icon: Calendar },
   { name: 'Audit Logs', href: '/admin/audit-logs', icon: Activity },
   { name: 'Enquiries', href: '/admin/enquiries', icon: MailOpen },
+  { name: 'Feedback Inbox', href: '/admin/feedback', icon: MessageSquareWarning }, // ✅ NEW ITEM
   { name: 'User Management', href: '/admin/users', icon: Settings },
   { name: 'Settings', href: '/admin/settings', icon: Settings },
    { name: 'News & Events', href: '/admin/news', icon: Newspaper },

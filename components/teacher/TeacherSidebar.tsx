@@ -13,6 +13,7 @@ import {
   LogOut,
   X,
   PenLine,
+  HelpCircle, // ✅ NEW ICON FOR SEND FEEDBACK
 } from 'lucide-react';
 import { useClerk } from '@clerk/nextjs';
 
@@ -23,6 +24,7 @@ const menuItems = [
   { name: 'Mark Attendance', href: '/teacher/attendance', icon: CheckSquare },
   { name: 'Enter Results', href: '/teacher/results', icon: Edit3 },
   { name: 'Timetable', href: '/teacher/timetable', icon: Calendar },
+  { name: 'Send Feedback', href: '/teacher/feedback', icon: HelpCircle }, // ✅ NEW ITEM
   { name: 'Notices', href: '/teacher/notices', icon: Bell },
 ];
 
