@@ -7,6 +7,8 @@ import { Plus, Search, DollarSign, FileText, Download, Eye, Edit, Trash2, X, Che
 import toast, { Toaster } from 'react-hot-toast'
 import QRCode from 'qrcode' //
 import { generateVerificationToken } from '@/lib/documentVerification'
+import { useUser } from '@clerk/nextjs'; // Add this if not present
+import { auditActions } from '@/lib/auditLog'; // Add this if not present
 
 interface FeeStructure {
   id: string
@@ -67,6 +69,7 @@ export default function FeeManagementPage() {
   const [editingItem, setEditingItem] = useState<any>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
+  const { user } = useUser(); // Add this if not present
 
   // ✅ Live search with a tiny debounce (smooth typing, no lag)
   useEffect(() => {
@@ -333,6 +336,38 @@ export default function FeeManagementPage() {
       
       if (requestError) throw requestError
       
+      // ✅ RESOLVE PARENT'S USER ID (payment_requests may not carry it)
+      let parentUserId = request.user_id || null
+      if (!parentUserId && request.student_id) {
+        const { data: parentRow } = await supabase
+          .from('parents')
+          .select('user_id')
+          .contains('students_ids', [request.student_id])
+          .limit(1)
+          .maybeSingle()
+        parentUserId = parentRow?.user_id || null
+      }
+
+      // ✅ SEND NOTIFICATION TO PARENT
+      if (parentUserId) {
+        await supabase.from('notifications').insert([{
+          user_id: parentUserId,
+          title: 'Payment Approved ✅',
+          message: `Your payment of ₦${request.amount.toLocaleString()} for ${request.student_name} has been approved. Receipt: ${receiptNumber}`,
+          type: 'success',
+          is_read: false,
+          link: '/parent'
+        }])
+      }
+      
+      // ✅ AUDIT LOG
+      await auditActions.adminApprovePayment(
+        user?.emailAddresses[0]?.emailAddress || 'admin',
+        request.student_name,
+        request.amount,
+        receiptNumber
+      )
+      
       toast.success(`Payment approved! Receipt: ${receiptNumber}`)
       setShowRequestModal(false)
       setAdminNotes('')
@@ -358,6 +393,38 @@ export default function FeeManagementPage() {
         .eq('id', request.id)
       
       if (error) throw error
+      
+      // ✅ RESOLVE PARENT'S USER ID (payment_requests may not carry it)
+      let parentUserId = request.user_id || null
+      if (!parentUserId && request.student_id) {
+        const { data: parentRow } = await supabase
+          .from('parents')
+          .select('user_id')
+          .contains('students_ids', [request.student_id])
+          .limit(1)
+          .maybeSingle()
+        parentUserId = parentRow?.user_id || null
+      }
+
+      // ✅ SEND NOTIFICATION TO PARENT
+      if (parentUserId) {
+        await supabase.from('notifications').insert([{
+          user_id: parentUserId,
+          title: 'Payment Request Rejected ❌',
+          message: `Your payment request of ₦${request.amount.toLocaleString()} for ${request.student_name} was rejected. Reason: ${reason}`,
+          type: 'warning',
+          is_read: false,
+          link: '/parent'
+        }])
+      }
+      
+      // ✅ AUDIT LOG
+      await auditActions.adminRejectPayment(
+        user?.emailAddresses[0]?.emailAddress || 'admin',
+        request.student_name,
+        request.amount,
+        reason
+      )
       
       toast.success('Payment request rejected')
       setShowRequestModal(false)

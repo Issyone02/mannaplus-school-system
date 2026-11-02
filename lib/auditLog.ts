@@ -148,6 +148,42 @@ export const auditActions = {
     })
   },
 
+
+  // ✅ PAYMENT APPROVAL/REJECTION AUDIT ACTIONS
+  adminApprovePayment: async (
+    adminEmail: string,
+    studentName: string,
+    amount: number,
+    receiptNumber: string
+  ) => {
+    await logAuditEvent({
+      userEmail: adminEmail,
+      userRole: 'admin',
+      action: 'approve_payment',
+      description: `Approved payment of ₦${amount.toLocaleString()} for ${studentName}. Receipt: ${receiptNumber}`,
+      entityType: 'payment',
+      entityId: receiptNumber,
+      severity: 'MEDIUM'
+    })
+  },
+
+  adminRejectPayment: async (
+    adminEmail: string,
+    studentName: string,
+    amount: number,
+    reason: string
+  ) => {
+    await logAuditEvent({
+      userEmail: adminEmail,
+      userRole: 'admin',
+      action: 'reject_payment',
+      description: `Rejected payment of ₦${amount.toLocaleString()} for ${studentName}. Reason: ${reason}`,
+      entityType: 'payment',
+      entityId: studentName,
+      severity: 'HIGH'
+    })
+  },
+
   // Authentication
   userLogin: (userEmail: string, role: string) =>
     logAuditEvent({

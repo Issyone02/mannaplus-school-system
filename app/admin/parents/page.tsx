@@ -553,7 +553,7 @@ export default function ParentsPage() {
               {/* Relationship & Status */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <div>
-                  <label className="block text-sm font-bold text-gray-900 mb-1">Relationship to Student</label>
+                  <label className="block text-sm font-bold text-gray-900 mb-1">Relationship</label>
                   <select value={formData.relationship_to_student} onChange={(e) => setFormData({...formData, relationship_to_student: e.target.value})} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-gray-900 font-bold">
                     {relationshipOptions.map((r) => <option key={r} value={r}>{r}</option>)}
                   </select>

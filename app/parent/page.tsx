@@ -288,10 +288,13 @@ export default function ParentPortalPage() {
 
       const { data: reqs } = await supabase
         .from('payment_requests')
-        .select('id, amount, status, payment_method, reference_number, notes, created_at')
+        .select('id, amount, status, payment_method, reference_number, notes, admin_notes, proof_image_url, created_at, fee_structures(name)')
         .eq('student_id', studentId)
         .order('created_at', { ascending: false })
-      setPendingRequests((reqs || []) as any[])
+      setPendingRequests(((reqs || []) as any[]).map((r: any) => ({
+        ...r,
+        fee_name: r.fee_structures?.name || 'General Payment',
+      })))
     } catch (error: any) {
       toast.error('Failed to load fee information')
     }
@@ -687,6 +690,11 @@ export default function ParentPortalPage() {
                       <p className="text-3xl font-bold text-yellow-900">
                         ₦{pendingRequests.filter(r => r.status === 'pending').reduce((s, r) => s + r.amount, 0).toLocaleString()}
                       </p>
+                      {pendingRequests.filter(r => r.status === 'rejected').length > 0 && (
+                        <p className="text-xs text-red-600 mt-2 font-bold">
+                          {pendingRequests.filter(r => r.status === 'rejected').length} rejected — see history below
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -728,7 +736,7 @@ export default function ParentPortalPage() {
 
                                     <div data-testid="payment-history" className="mt-6 bg-white border border-gray-200 rounded-lg overflow-hidden">
                     <div className="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
-                      <h3 className="font-bold text-gray-900">Payment History</h3>
+                      <h3 className="font-bold text-gray-900">Payment History & Request Status</h3>
                       {paymentHistory.length > 0 && (
                         <button onClick={handleDownloadAllReceipts} className="flex items-center gap-2 text-sm bg-green-600 text-white px-3 py-1.5 rounded font-bold hover:bg-green-700">
                           <Download size={14} /> Download All Receipts
@@ -742,10 +750,11 @@ export default function ParentPortalPage() {
                         <table className="w-full">
                           <thead className="bg-gray-100 border-b border-gray-200">
                             <tr>
-                              <th className="p-3 text-left font-bold text-gray-900">Receipt</th>
+                              <th className="p-3 text-left font-bold text-gray-900">Receipt / Reference</th>
                               <th className="p-3 text-left font-bold text-gray-900">Date & Time</th>
                               <th className="p-3 text-left font-bold text-gray-900">Method</th>
                               <th className="p-3 text-right font-bold text-gray-900">Amount</th>
+                              <th className="p-3 text-left font-bold text-gray-900">Status & Admin Feedback</th>
                               <th className="p-3 text-center font-bold text-gray-900">Actions</th>
                             </tr>
                           </thead>
@@ -756,6 +765,10 @@ export default function ParentPortalPage() {
                                 <td className="p-3 text-sm text-gray-600">{new Date(p.created_at || p.payment_date).toLocaleString()}</td>
                                 <td className="p-3 text-sm text-gray-600 capitalize">{p.payment_method}</td>
                                 <td className="p-3 text-right font-bold text-green-700">₦{p.amount_paid.toLocaleString()}</td>
+                                <td className="p-3">
+                                  <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs font-bold rounded-full">APPROVED</span>
+                                  <p className="text-xs text-gray-500 mt-1">Payment confirmed by school</p>
+                                </td>
                                 <td className="p-3 text-center">
                                   <button onClick={() => handleDownloadReceipt(p)} className="text-blue-600 hover:text-blue-800 font-bold text-sm flex items-center justify-center gap-1 mx-auto">
                                     <Download size={14} /> Download
@@ -763,15 +776,33 @@ export default function ParentPortalPage() {
                                 </td>
                               </tr>
                             ))}
-                            {pendingRequests.filter(r => r.status === 'pending').map((r, i) => (
-                              <tr key={`req-${r.id}`} className="border-b border-gray-100 hover:bg-yellow-50 bg-yellow-50/40">
-                                <td className="p-3 font-medium text-gray-900">{r.reference_number}</td>
+                            {pendingRequests.filter(r => r.status !== 'approved').map((r, i) => (
+                              <tr key={`req-${r.id}`} className={`border-b border-gray-100 ${r.status === 'pending' ? 'bg-yellow-50/40 hover:bg-yellow-50' : 'bg-red-50/40 hover:bg-red-50'}`}>
+                                <td className="p-3 font-medium text-gray-900">
+                                  {r.reference_number || 'No reference'}
+                                  <p className="text-xs text-gray-500">{r.fee_name}</p>
+                                </td>
                                 <td className="p-3 text-sm text-gray-600">{new Date(r.created_at).toLocaleString()}</td>
                                 <td className="p-3 text-sm text-gray-600 capitalize">{r.payment_method}</td>
-                                <td className="p-3 text-right font-bold text-yellow-700">
-                                  ₦{r.amount.toLocaleString()}
-                                  <span className="ml-2 px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-bold rounded-full">PENDING</span>
+                                <td className="p-3 text-right font-bold text-gray-900">₦{r.amount.toLocaleString()}</td>
+                                <td className="p-3">
+                                  <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${
+                                    r.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
+                                  }`}>
+                                    {r.status === 'pending' ? 'PENDING APPROVAL' : 'REJECTED'}
+                                  </span>
+                                  {r.admin_notes && (
+                                    <p className={`text-xs mt-1 ${r.status === 'pending' ? 'text-yellow-700' : 'text-red-700'}`}>
+                                      {r.admin_notes}
+                                    </p>
+                                  )}
+                                  {r.proof_image_url && (
+                                    <a href={r.proof_image_url} target="_blank" rel="noopener noreferrer" className="text-xs text-purple-600 underline block mt-1">
+                                      View uploaded proof
+                                    </a>
+                                  )}
                                 </td>
+                                <td className="p-3 text-center text-sm text-gray-400">—</td>
                               </tr>
                             ))}
                           </tbody>
