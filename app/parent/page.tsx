@@ -4,7 +4,7 @@ import { useUser, SignOutButton } from '@clerk/nextjs'
 import { redirect } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { LogOut, Users, FileText, DollarSign, Calendar, TrendingUp, CheckCircle, XCircle, Clock, AlertCircle, Download } from 'lucide-react' // ✅ Added Download
+import { LogOut, Users, User, FileText, DollarSign, Calendar, TrendingUp, CheckCircle, XCircle, Clock, AlertCircle, Download, X } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
 import QRCode from 'qrcode'
 import { generateVerificationToken } from '@/lib/documentVerification'
@@ -89,6 +89,7 @@ export default function ParentPortalPage() {
   const [pendingRequests, setPendingRequests] = useState<any[]>([])
   const [reportData, setReportData] = useState<any>(null)
   const [reportCardAccess, setReportCardAccess] = useState<any>(null)
+  const [viewingChildProfile, setViewingChildProfile] = useState<any>(null) // ✅ Full child profile modal
   
   // ✅ NEW: Term/Session selector state
   const [selectedTerm, setSelectedTerm] = useState<string>('')
@@ -390,6 +391,21 @@ export default function ParentPortalPage() {
     fetchStudentAttendance(childId)
   }
 
+  // ✅ VIEW FULL CHILD PROFILE (same details the admin sees)
+  const handleViewProfile = async (childId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('students')
+        .select('*')
+        .eq('id', childId)
+        .single()
+      if (error) throw error
+      setViewingChildProfile(data)
+    } catch (error: any) {
+      toast.error('Failed to load profile: ' + error.message)
+    }
+  }
+
   const handleBackToList = () => {
     setViewMode('list')
     setSelectedChild(null)
@@ -521,7 +537,7 @@ export default function ParentPortalPage() {
                       </div>
                       <span className="px-3 py-1 bg-purple-100 text-purple-800 text-xs font-bold rounded-full">Active Student</span>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
                       <button onClick={() => handleViewResults(child.id)} className="bg-blue-50 hover:bg-blue-100 p-4 rounded-lg flex items-center gap-3 transition-colors cursor-pointer text-left">
                         <div className="bg-blue-100 p-2 rounded-full"><FileText size={20} className="text-blue-600"/></div>
                         <div><p className="text-xs text-gray-600">Academic Results</p><p className="font-bold text-blue-900">View Results →</p></div>
@@ -533,6 +549,10 @@ export default function ParentPortalPage() {
                       <button onClick={() => handleViewAttendance(child.id)} className="bg-orange-50 hover:bg-orange-100 p-4 rounded-lg flex items-center gap-3 transition-colors cursor-pointer text-left">
                         <div className="bg-orange-100 p-2 rounded-full"><Calendar size={20} className="text-orange-600"/></div>
                         <div><p className="text-xs text-gray-600">Attendance</p><p className="font-bold text-orange-900">View Record →</p></div>
+                      </button>
+                      <button onClick={() => handleViewProfile(child.id)} className="bg-purple-50 hover:bg-purple-100 p-4 rounded-lg flex items-center gap-3 transition-colors cursor-pointer text-left">
+                        <div className="bg-purple-100 p-2 rounded-full"><User size={20} className="text-purple-600"/></div>
+                        <div><p className="text-xs text-gray-600">Full Profile</p><p className="font-bold text-purple-900">View Details →</p></div>
                       </button>
                     </div>
                   </div>
@@ -957,6 +977,55 @@ export default function ParentPortalPage() {
           </div>
         )}
       </main>
+
+      {/* ✅ FULL CHILD PROFILE MODAL (mirrors admin Student Profile) */}
+      {viewingChildProfile && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center p-6 border-b border-gray-200 sticky top-0 bg-white">
+              <h2 className="text-xl font-bold text-gray-900">Student Profile</h2>
+              <button onClick={() => setViewingChildProfile(null)} className="text-gray-700 hover:text-gray-900"><X size={24}/></button>
+            </div>
+            <div className="p-6">
+              <div className="flex items-center gap-4 mb-6">
+                {viewingChildProfile.passport_url ? (
+                  <img src={viewingChildProfile.passport_url} alt="Passport" className="w-24 h-24 rounded-full object-cover border-2 border-purple-200" />
+                ) : (
+                  <div className="w-24 h-24 rounded-full bg-purple-50 border-2 border-purple-100 flex items-center justify-center">
+                    <User size={40} className="text-purple-300" />
+                  </div>
+                )}
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">{viewingChildProfile.full_name}</h3>
+                  <p className="text-sm text-gray-600">Admission No: {viewingChildProfile.admission_number}</p>
+                  <div className="flex gap-2 mt-2 flex-wrap">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${viewingChildProfile.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                      {viewingChildProfile.active ? 'Active' : 'Inactive'}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
+                      {children.find(c => c.id === viewingChildProfile.id)?.class_name || 'Unassigned'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><p className="text-xs font-bold text-gray-500 uppercase">Gender</p><p className="text-sm text-gray-900">{viewingChildProfile.gender || 'Not provided'}</p></div>
+                <div><p className="text-xs font-bold text-gray-500 uppercase">Emergency Contact</p><p className="text-sm text-gray-900">{viewingChildProfile.emergency_contact || viewingChildProfile.emergency_name || 'Not provided'}</p></div>
+                <div><p className="text-xs font-bold text-gray-500 uppercase">Date of Birth</p><p className="text-sm text-gray-900">{viewingChildProfile.date_of_birth || 'Not provided'}</p></div>
+                <div><p className="text-xs font-bold text-gray-500 uppercase">Emergency Phone</p><p className="text-sm text-gray-900">{viewingChildProfile.emergency_phone || 'Not provided'}</p></div>
+                <div><p className="text-xs font-bold text-gray-500 uppercase">State of Origin</p><p className="text-sm text-gray-900">{viewingChildProfile.state_of_origin || viewingChildProfile.state || 'Not provided'}</p></div>
+                <div><p className="text-xs font-bold text-gray-500 uppercase">Portal Access</p><p className="text-sm text-gray-900">{viewingChildProfile.user_id ? '✓ Yes' : '✗ No'}</p></div>
+                <div className="md:col-span-2"><p className="text-xs font-bold text-gray-500 uppercase">Home Address</p><p className="text-sm text-gray-900">{viewingChildProfile.home_address || viewingChildProfile.address || 'Not provided'}</p></div>
+              </div>
+
+              <div className="flex justify-end mt-6 pt-4 border-t border-gray-200">
+                <button onClick={() => setViewingChildProfile(null)} className="px-6 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg font-bold text-gray-900">Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {selectedStudent && fees && (
         <PaymentRequestModal
