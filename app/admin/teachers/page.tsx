@@ -66,6 +66,14 @@ export default function TeachersPage() {
   
   // ✅ DYNAMIC SUBJECTS: Will hold unique subject names
   const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
+  // ✅ AUTO-GENERATED STAFF ID PREVIEW
+  const [nextStaffId, setNextStaffId] = useState<string>('');
+
+  // ✅ FETCH NEXT AUTO STAFF ID PREVIEW (from DB sequence)
+  const fetchNextStaffId = async () => {
+    const { data } = await supabase.rpc('next_teacher_staff')
+    setNextStaffId(data || '')
+  };
 
   // ✅ FETCH CLASSES FROM DATABASE
   const fetchClasses = async () => {
@@ -209,7 +217,7 @@ export default function TeachersPage() {
 
       // ✅ PREPARE TEACHER DATA WITH MULTI-CLASS SUPPORT
       const teacherData = {
-        staff_id: formData.staff_id,
+        ...(editingTeacher ? { staff_id: formData.staff_id } : {}), // Create: DB sequence auto-assigns
         full_name: formData.full_name,
         email: formData.email,
         phone: formData.phone || null,
@@ -231,11 +239,14 @@ export default function TeachersPage() {
         if (error) throw error;
         toast.success('Teacher updated successfully!');
       } else {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('teachers')
-          .insert([teacherData]);
+          .insert([teacherData])
+          .select()
+          .single();
         if (error) throw error;
-        toast.success('Teacher added successfully!' + (userId ? ' Portal account created!' : ''));
+        toast.success(`Teacher added! Staff ID: ${data?.staff_id || nextStaffId}` + (userId ? ' Portal account created!' : ''));
+        fetchNextStaffId(); // ✅ Refresh preview for the next teacher
       }
 
       // ✅ RESET FORM AND REFRESH
@@ -343,6 +354,7 @@ export default function TeachersPage() {
     fetchSubjects(); // ✅ Fetch unique subject names
     fetchTeachers();
     fetchUsers();
+    fetchNextStaffId(); // ✅ Load next staff ID preview
   }, []);
 
   if (loading) return <div className="p-8 text-gray-900 font-bold">Loading teachers...</div>;
@@ -508,7 +520,7 @@ export default function TeachersPage() {
                 <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center"><User size={20} className="mr-2" /> Personal Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                   <div><label className="block text-sm font-bold text-gray-900 mb-1">Full Name *</label><input type="text" required value={formData.full_name} onChange={(e) => setFormData({...formData, full_name: e.target.value})} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium" placeholder="e.g., Mr. John Doe" /></div>
-                  <div><label className="block text-sm font-bold text-gray-900 mb-1">Staff ID *</label><input type="text" required value={formData.staff_id} onChange={(e) => setFormData({...formData, staff_id: e.target.value})} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium" placeholder="e.g., STF/2024/001" /></div>
+                  <div><label className="block text-sm font-bold text-gray-900 mb-1">Staff ID {editingTeacher ? '' : '(Auto-Generated)'}</label><input type="text" readOnly value={editingTeacher ? formData.staff_id : (nextStaffId || 'Assigning on save...')} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg bg-gray-100 text-gray-700 font-medium cursor-not-allowed" /></div>
                   <div><label className="block text-sm font-bold text-gray-900 mb-1">Email *</label><input type="email" required value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium" placeholder="teacher@mannaplus.com" /></div>
                   <div><label className="block text-sm font-bold text-gray-900 mb-1">Phone</label><input type="tel" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium" placeholder="+234 801 234 5678" /></div>
                 </div>

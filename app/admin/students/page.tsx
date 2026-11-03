@@ -76,6 +76,8 @@ export default function StudentsPage() {
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState({ total: 0, success: 0, failed: 0 })
   const [uploadReport, setUploadReport] = useState<{ success: number; skipped: string[] } | null>(null)
+  // ✅ AUTO-GENERATED ADMISSION NUMBER PREVIEW
+  const [nextAdmissionNumber, setNextAdmissionNumber] = useState<string>('')
 
   const [formData, setFormData] = useState({
     full_name: '',
@@ -96,11 +98,18 @@ export default function StudentsPage() {
 
   useEffect(() => {
     fetchClasses()
+    fetchNextAdmissionNumber() // ✅ Load next admission number preview
   }, [])
 
   useEffect(() => {
     fetchStudents()
   }, [currentPage, filterClass, filterDepartment, filterActive, searchTerm])
+
+  // ✅ FETCH NEXT AUTO ADMISSION NUMBER PREVIEW (from DB sequence)
+  const fetchNextAdmissionNumber = async () => {
+    const { data } = await supabase.rpc('next_student_admission')
+    setNextAdmissionNumber(data || '')
+  };
 
   const fetchClasses = async () => {
     try {
@@ -221,9 +230,9 @@ export default function StudentsPage() {
         }
       }
 
-      const studentData = {
+      const studentData: any = {
         full_name: formData.full_name.trim(),
-        admission_number: formData.admission_number.trim(),
+        ...(editingStudent ? { admission_number: formData.admission_number.trim() } : {}), // Create: DB sequence auto-assigns
         date_of_birth: formData.date_of_birth,
         gender: formData.gender.toLowerCase(),
         class_id: formData.class_id || null,
@@ -243,9 +252,14 @@ export default function StudentsPage() {
         if (error) throw error
         toast.success('Student updated successfully!')
       } else {
-        const { error } = await supabase.from('students').insert([studentData])
+        const { data, error } = await supabase
+          .from('students')
+          .insert([studentData])
+          .select()
+          .single()
         if (error) throw error
-        toast.success('Student added successfully!')
+        toast.success(`Student added! Admission No: ${data?.admission_number || nextAdmissionNumber}`)
+        fetchNextAdmissionNumber() // ✅ Refresh preview for the next student
       }
 
       setShowModal(false)
@@ -1051,7 +1065,7 @@ export default function StudentsPage() {
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div><label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label><input type="text" value={formData.full_name} onChange={(e) => setFormData({ ...formData, full_name: e.target.value })} required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900" /></div>
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">Admission Number *</label><input type="text" value={formData.admission_number} onChange={(e) => setFormData({ ...formData, admission_number: e.target.value })} required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900" /></div>
+                <div><label className="block text-sm font-medium text-gray-700 mb-1">Admission Number {editingStudent ? '' : '(Auto-Generated)'}</label><input type="text" readOnly value={editingStudent ? formData.admission_number : (nextAdmissionNumber || 'Assigning on save...')} className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 font-medium cursor-not-allowed" /></div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div><label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label><input type="date" value={formData.date_of_birth} onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900" /></div>
