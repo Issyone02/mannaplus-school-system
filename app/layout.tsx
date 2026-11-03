@@ -1,6 +1,7 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { ClerkProvider } from '@clerk/nextjs';
+import InstallPrompt from '@/components/InstallPrompt';
 import ConditionalNavbar from '@/components/ConditionalNavbar';
 import Footer from '@/components/Footer';
 import { Toaster } from 'react-hot-toast';
@@ -13,6 +14,20 @@ import ConditionalFooter from '@/components/ConditionalFooter';
 export const metadata: Metadata = {
   title: 'Mannaplus Group of Schools - Grooming the Future Leaders',
   description: "Ogun State's premier private school group (Nursery, Primary & College), producing Nigeria's brightest minds since 1998.",
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Mannaplus Group of Schools',
+  },
+};
+
+// ✅ Next 16 requires themeColor + viewport in their own export
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: '#16a34a',
 };
 
 export default function RootLayout({
@@ -39,6 +54,7 @@ export default function RootLayout({
           <ConditionalFooter />
           <IdleTimeout />
           <Toaster position="top-right" />
+          <InstallPrompt />
         </body>
       </html>
     </ClerkProvider>
