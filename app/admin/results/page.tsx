@@ -7,7 +7,7 @@ import toast, { Toaster } from 'react-hot-toast'
 import UnifiedReportCard from '@/components/UnifiedReportCard'
 import ReportCardEditor from '@/components/ReportCardEditor'
 import { calculateClassPositions } from '@/lib/classPositions'
-import { getSchoolAssets, getClassTeacherSignature } from '@/lib/schoolAssets'
+import { getSchoolAssets, getClassTeacherSignature, getBrandingForClass } from '@/lib/schoolAssets'
 import { enrichResultsWithPreviousTerms } from '@/lib/reportCardData'
 import { sendNotification } from '@/lib/notifications'
 import { logAuditEvent, auditActions } from '@/lib/auditLog'
@@ -69,7 +69,7 @@ export default function ResultsPage() {
 
   useEffect(() => { setViewLimit(50) }, [selectedClass, selectedDepartment, selectedTerm, selectedSession])
 
-  const [ signUrls, setSignUrls ] = useState<{ teacher?: string | null; principal?: string | null; stamp?: string |null }>({})
+  const [ signUrls, setSignUrls ] = useState<{ teacher?: string | null; principal?: string | null; stamp?: string |null; logo?: string | null }>({})
   
   // ✅ REPORT CARD ACCESS CONTROL
   const [accessControlClass, setAccessControlClass] = useState('')
@@ -106,20 +106,25 @@ export default function ResultsPage() {
     fetchPosition()
   }, [printStudentId, selectedTerm, selectedSession, students])
 
-  // ✅ Fetch signatures & stamp for the report card
+  // ✅ Fetch signatures + division-aware stamp & logo for the report card
   useEffect(() => {
     const fetchSignatures = async () => {
       if (!printStudentId) { setSignUrls({}); return }
       const student = students.find(s => s.id === printStudentId)
       const assets = await getSchoolAssets()
+      // ✅ Division branding: Primary (Nursery/KG/Prep/Basic) vs Secondary (JSS/SS)
+      const cls = classes.find(c => c.id === student?.class_id)
+      const className = cls ? `${cls.class_name} ${cls.arm || ''}`.trim() : ''
+      const branding = getBrandingForClass(className, assets)
       setSignUrls({
         teacher: student?.class_id ? await getClassTeacherSignature(student.class_id) : null,
         principal: assets.principal_signature?.url || null,
-        stamp: assets.school_stamp?.url || null,
+        stamp: branding.stampUrl,
+        logo: branding.logoUrl,
       })
     }
     fetchSignatures()
-  }, [printStudentId, students])
+  }, [printStudentId, students, classes])
 
   const termOptions = ['First Term', 'Second Term', 'Third Term']
   const generateSessionOptions = () => {
@@ -1252,6 +1257,7 @@ export default function ResultsPage() {
               teacherSignatureUrl={signUrls.teacher}
               principalSignatureUrl={signUrls.principal}
               stampUrl={signUrls.stamp}
+              schoolLogoUrl={signUrls.logo}
               teacherDate={reportData?.teacher_date || null}
               headTeacherDate={reportData?.head_teacher_date || null}
             />

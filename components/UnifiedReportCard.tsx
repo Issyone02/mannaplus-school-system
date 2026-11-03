@@ -27,6 +27,7 @@ interface UnifiedReportCardProps {
   teacherSignatureUrl?: string | null
   principalSignatureUrl?: string | null
   stampUrl?: string | null
+  schoolLogoUrl?: string | null // ✅ NEW: Division-specific logo
   teacherDate?: string | null
   headTeacherDate?: string | null
 }
@@ -45,10 +46,8 @@ export default function UnifiedReportCard(props: UnifiedReportCardProps) {
   const handlePrint = async () => {
     if (results.length === 0) return
 
-    const isPrimary = student.class_name.toLowerCase().includes('primary') || student.class_name.toLowerCase().includes('nursery')
-    const logoToUse = isPrimary
-      ? "https://mecvtpnqmffqvniioudk.supabase.co/storage/v1/object/public/school-assets/logo_primary.png"
-      : "https://mecvtpnqmffqvniioudk.supabase.co/storage/v1/object/public/school-assets/logo_secondary.png"
+    // ✅ Use division-specific logo from props (passed by parent), fallback to generic
+    const logoToUse = props.schoolLogoUrl || "https://mecvtpnqmffqvniioudk.supabase.co/storage/v1/object/public/school-assets/logo_primary.png"
 
     // ✅ Resolve student id (from prop, or look up by admission number)
     let studentId = student.id
@@ -144,7 +143,7 @@ export default function UnifiedReportCard(props: UnifiedReportCardProps) {
     font-weight: bold;
   }
   .header { display: flex; align-items: center; gap: 8px; border-bottom: 2px solid #16a34a; padding-bottom: 3px; margin-bottom: 3px; }
-  .logo { width: 52px; height: 52px; object-fit: contain; }
+  .logo { width: 80px; height: 80px; object-fit: contain; }
   .school-info { flex: 1; text-align: center; }
   h1 { margin: 0; font-size: 13px; color: #16a34a; text-transform: uppercase; font-weight: bold; }
   h2 { margin: 0; font-size: 9.5px; font-style: italic; color: #333; font-weight: bold; }
@@ -159,7 +158,7 @@ export default function UnifiedReportCard(props: UnifiedReportCardProps) {
   .two { display: flex; gap: 4px; }
   .two > div { flex: 1; }
   .sum td { font-weight: bold; background: #f0fdf4; }
-  .sig { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 6px; }
+  .sig { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 36px; }
   .sig-box { width: 30%; text-align: center; font-size: 8px; font-weight: bold; }
   .sig-line { border-top: 1px solid #000; padding-top: 2px; }
   .stamp { 
@@ -284,8 +283,8 @@ export default function UnifiedReportCard(props: UnifiedReportCardProps) {
       <div class="sig-line">Class Teacher's Signature</div>Date: ${props.teacherDate ? new Date(props.teacherDate).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'}) : '______________'}
     </div>
     <div class="sig-box">
-      ${props.stampUrl ? `<img src="${props.stampUrl}" style="width:60px;height:60px;object-fit:contain" alt="School Stamp"/>` : `<div class="stamp">OFFICIAL<br/>SCHOOL<br/>STAMP</div>`}
-      <div style="margin-top:1px">Affix School Stamp &<br/>Authorized Signature Here</div>
+      ${props.stampUrl ? `<img src="${props.stampUrl}" style="width:120px;height:auto;display:block;margin:0 auto 2px;" alt="School Stamp"/>` : `<div class="stamp">OFFICIAL<br/>SCHOOL<br/>STAMP</div>`}
+      <div style="margin-top:1px">Official Stamp / Signature</div>
     </div>
     <div class="sig-box">
       ${props.principalSignatureUrl ? `<img src="${props.principalSignatureUrl}" style="height:32px;object-fit:contain;margin-bottom:1px" alt=""/>` : ''}

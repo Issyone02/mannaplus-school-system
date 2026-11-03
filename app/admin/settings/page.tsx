@@ -10,6 +10,13 @@ export default function SchoolSettingsPage() {
   const [principalName, setPrincipalName] = useState('')
   const [principalSig, setPrincipalSig] = useState<string | null>(null)
   const [stampUrl, setStampUrl] = useState<string | null>(null)
+  
+  // ✅ Division-specific assets
+  const [primaryLogo, setPrimaryLogo] = useState<string | null>(null)
+  const [primaryStamp, setPrimaryStamp] = useState<string | null>(null)
+  const [secondaryLogo, setSecondaryLogo] = useState<string | null>(null)
+  const [secondaryStamp, setSecondaryStamp] = useState<string | null>(null)
+  
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -21,6 +28,10 @@ export default function SchoolSettingsPage() {
           setPrincipalName(a.holder_name || '')
         }
         if (a.asset_type === 'school_stamp') setStampUrl(a.url)
+        if (a.asset_type === 'primary_logo') setPrimaryLogo(a.url)
+        if (a.asset_type === 'primary_stamp') setPrimaryStamp(a.url)
+        if (a.asset_type === 'secondary_logo') setSecondaryLogo(a.url)
+        if (a.asset_type === 'secondary_stamp') setSecondaryStamp(a.url)
       })
       setLoading(false)
     }
@@ -77,13 +88,65 @@ export default function SchoolSettingsPage() {
                     {principalName && <p className="text-xs text-gray-500 mt-2 text-center md:text-left">Current holder: <strong>{principalName}</strong>. When a new head teacher takes over, upload their signature and update the name — all new report cards will use it automatically.</p>}
         </div>
 
-        {/* School Stamp */}
+        {/* Generic School Stamp (Fallback) */}
         <SignatureUpload
           currentUrl={stampUrl}
-          label="Official School Stamp"
+          label="Official School Stamp (Fallback)"
           storagePath="assets/school_stamp"
           onSaved={(url) => { setStampUrl(url); saveAsset('school_stamp', url); }}
         />
+
+        {/* ✅ PRIMARY DIVISION BRANDING */}
+        <div className="bg-blue-50 rounded-lg shadow p-4 md:p-6 border-2 border-blue-200">
+          <h3 className="font-bold text-blue-900 mb-4 flex items-center justify-center md:justify-start gap-2 text-lg">
+            🎨 Primary Division Branding
+          </h3>
+          <p className="text-sm text-blue-700 mb-4 text-center md:text-left">
+            Used for: <strong>Nursery, KG, Prep, Basic 1-6</strong>
+          </p>
+          
+          <div className="space-y-4">
+            <SignatureUpload
+              currentUrl={primaryLogo}
+              label="Primary School Logo"
+              storagePath="assets/primary_logo"
+              onSaved={(url) => { setPrimaryLogo(url); saveAsset('primary_logo', url); }}
+            />
+            
+            <SignatureUpload
+              currentUrl={primaryStamp}
+              label="Primary School Stamp"
+              storagePath="assets/primary_stamp"
+              onSaved={(url) => { setPrimaryStamp(url); saveAsset('primary_stamp', url); }}
+            />
+          </div>
+        </div>
+
+        {/* ✅ SECONDARY DIVISION BRANDING */}
+        <div className="bg-green-50 rounded-lg shadow p-4 md:p-6 border-2 border-green-200">
+          <h3 className="font-bold text-green-900 mb-4 flex items-center justify-center md:justify-start gap-2 text-lg">
+            🎨 Secondary Division Branding
+          </h3>
+          <p className="text-sm text-green-700 mb-4 text-center md:text-left">
+            Used for: <strong>JSS 1-3, SS 1-3</strong>
+          </p>
+          
+          <div className="space-y-4">
+            <SignatureUpload
+              currentUrl={secondaryLogo}
+              label="Secondary School Logo"
+              storagePath="assets/secondary_logo"
+              onSaved={(url) => { setSecondaryLogo(url); saveAsset('secondary_logo', url); }}
+            />
+            
+            <SignatureUpload
+              currentUrl={secondaryStamp}
+              label="Secondary School Stamp"
+              storagePath="assets/secondary_stamp"
+              onSaved={(url) => { setSecondaryStamp(url); saveAsset('secondary_stamp', url); }}
+            />
+          </div>
+        </div>
       </div>
     </div>
   )

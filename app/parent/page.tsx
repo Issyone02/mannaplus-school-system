@@ -12,7 +12,7 @@ import StudentAttendanceCalendar from '@/components/StudentAttendanceCalendar'
 import NewsHighlights from '@/components/NewsHighlights'
 import UnifiedReportCard from '@/components/UnifiedReportCard'
 import { calculateClassPositions } from '@/lib/classPositions'
-import { getSchoolAssets, getClassTeacherSignature } from '@/lib/schoolAssets'
+import { getSchoolAssets, getClassTeacherSignature, getBrandingForClass } from '@/lib/schoolAssets'
 import { enrichResultsWithPreviousTerms } from '@/lib/reportCardData'
 import PaymentRequestModal from '@/components/PaymentRequestModal'
 
@@ -84,7 +84,7 @@ export default function ParentPortalPage() {
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<'list' | 'results' | 'fees' | 'attendance'>('list')
   const [positionInfo, setPositionInfo] = useState<any>(null)
-  const [signUrls, setSignUrls] = useState<{ teacher?: string | null; principal?: string | null; stamp?: string | null }>({})
+  const [signUrls, setSignUrls] = useState<{ teacher?: string | null; principal?: string | null; stamp?: string | null; logo?: string | null }>({})
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [pendingRequests, setPendingRequests] = useState<any[]>([])
   const [reportData, setReportData] = useState<any>(null)
@@ -365,10 +365,13 @@ export default function ParentPortalPage() {
         await fetchStudentReport(selectedChild, selectedTerm, selectedSession)
 
         const assets = await getSchoolAssets()
+        // ✅ Division branding: Primary (Nursery/KG/Prep/Basic) vs Secondary (JSS/SS)
+        const branding = getBrandingForClass(child?.class_name || '', assets)
         setSignUrls({
           teacher: child?.class_id ? await getClassTeacherSignature(child.class_id) : null,
           principal: assets.principal_signature?.url || null,
-          stamp: assets.school_stamp?.url || null,
+          stamp: branding.stampUrl,
+          logo: branding.logoUrl,
         })
       }
       loadResults()
@@ -678,6 +681,7 @@ export default function ParentPortalPage() {
                   teacherSignatureUrl={signUrls.teacher}
                   principalSignatureUrl={signUrls.principal}
                   stampUrl={signUrls.stamp}
+                  schoolLogoUrl={signUrls.logo}
                   teacherDate={reportData?.teacher_date || null}
                   headTeacherDate={reportData?.head_teacher_date || null}
                 />
