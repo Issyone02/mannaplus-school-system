@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { ClerkProvider } from '@clerk/nextjs';
 import InstallPrompt from '@/components/InstallPrompt';
+import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
 import ConditionalNavbar from '@/components/ConditionalNavbar';
 import Footer from '@/components/Footer';
 import { Toaster } from 'react-hot-toast';
@@ -55,6 +56,7 @@ export default function RootLayout({
           <IdleTimeout />
           <Toaster position="top-right" />
           <InstallPrompt />
+<ServiceWorkerRegistration />
         </body>
       </html>
     </ClerkProvider>
