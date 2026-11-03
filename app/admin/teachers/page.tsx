@@ -116,30 +116,29 @@ export default function TeachersPage() {
     // ✅ FETCH TEACHERS WITH DYNAMIC CLASS FORMATTING (MULTI-CLASS SUPPORT)
   const fetchTeachers = async () => {
     try {
-      const { data, error } = await supabase.from('teachers').select('*').order('full_name');
-      if (error) throw error;
+      const { data: teachersData, error: teachersError } = await supabase.from('teachers').select('*').order('full_name');
+      if (teachersError) throw teachersError;
       
-      // Format class names with department information
-      const enriched = (data || []).map((t: any) => {
-        // Prefer form_class_ids array, fallback to legacy form_class_id
-        const idsToResolve: string[] = t.form_class_ids?.length > 0 
-          ? t.form_class_ids 
-          : (t.form_class_id ? [t.form_class_id] : []);
+      // ✅ Fetch classes to resolve assignments (Single Source of Truth)
+      const { data: classesData } = await supabase.from('classes').select('id, class_name, arm, department, teacher_id');
+
+      const enriched = (teachersData || []).map((t: any) => {
+        // Find all classes where this teacher is assigned
+        const assignedClasses = (classesData || []).filter((c: any) => c.teacher_id === t.id);
         
-        const resolvedNames = idsToResolve.map((id: string) => {
-          const cls = classes.find(c => c.id === id);
-          if (!cls) return null;
+        const resolvedNames = assignedClasses.map((cls: any) => {
           let name = cls.class_name;
           if (cls.arm) name += ` (${cls.arm})`;
           if (cls.department) name += ` - ${cls.department}`;
           return name;
-        }).filter(Boolean) as string[];
+        });
 
         return { 
           ...t, 
           form_class_names: resolvedNames.length > 0 ? resolvedNames : ['Unassigned'],
-          // Keep singular for backwards-compat display if needed elsewhere
-          form_class_name: resolvedNames.join(', ') || 'Unassigned' 
+          form_class_name: resolvedNames.join(', ') || 'Unassigned',
+          // Keep form_class_ids in sync for the edit modal
+          form_class_ids: assignedClasses.map((c: any) => c.id)
         };
       });
       
@@ -232,20 +231,37 @@ export default function TeachersPage() {
 
       // ✅ SAVE OR UPDATE TEACHER
       if (editingTeacher) {
-        const { error } = await supabase
+        // 1. Update teacher record
+        const { error: teacherError } = await supabase
           .from('teachers')
           .update(teacherData)
           .eq('id', editingTeacher.id);
-        if (error) throw error;
+        if (teacherError) throw teacherError;
+
+        // 2. Sync classes table: Clear this teacher from ALL classes first
+        await supabase.from('classes').update({ teacher_id: null }).eq('teacher_id', editingTeacher.id);
+        
+        // 3. Sync classes table: Assign this teacher to the newly selected classes
+        if (formData.form_class_ids.length > 0) {
+          await supabase.from('classes').update({ teacher_id: editingTeacher.id }).in('id', formData.form_class_ids);
+        }
+
         toast.success('Teacher updated successfully!');
       } else {
-        const { data, error } = await supabase
+        // New teacher
+        const { data: newTeacher, error: teacherError } = await supabase
           .from('teachers')
           .insert([teacherData])
           .select()
           .single();
-        if (error) throw error;
-        toast.success(`Teacher added! Staff ID: ${data?.staff_id || nextStaffId}` + (userId ? ' Portal account created!' : ''));
+        if (teacherError) throw teacherError;
+        
+        // Sync classes table for new teacher
+        if (formData.form_class_ids.length > 0 && newTeacher) {
+          await supabase.from('classes').update({ teacher_id: newTeacher.id }).in('id', formData.form_class_ids);
+        }
+        
+        toast.success(`Teacher added! Staff ID: ${newTeacher?.staff_id || nextStaffId}` + (userId ? ' Portal account created!' : ''));
         fetchNextStaffId(); // ✅ Refresh preview for the next teacher
       }
 
