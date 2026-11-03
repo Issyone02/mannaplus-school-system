@@ -70,6 +70,15 @@ export default function ResultsPage() {
   useEffect(() => { setViewLimit(50) }, [selectedClass, selectedDepartment, selectedTerm, selectedSession])
 
   const [ signUrls, setSignUrls ] = useState<{ teacher?: string | null; principal?: string | null; stamp?: string |null }>({})
+  
+  // ✅ REPORT CARD ACCESS CONTROL
+  const [accessControlClass, setAccessControlClass] = useState('')
+  const [accessControlTerm, setAccessControlTerm] = useState(getCurrentTerm())
+  const [accessControlSession, setAccessControlSession] = useState(getCurrentSession())
+  const [accessControlUnlocked, setAccessControlUnlocked] = useState(false)
+  const [accessControlStartDate, setAccessControlStartDate] = useState('')
+  const [accessControlEndDate, setAccessControlEndDate] = useState('')
+  const [accessControlLoading, setAccessControlLoading] = useState(false)
 
   useEffect(() => {
     const fetchReportData = async () => {
@@ -140,7 +149,141 @@ export default function ResultsPage() {
   const [offeringDraft, setOfferingDraft] = useState<string[]>([])
   const [resultForm, setResultForm] = useState({ student_id: '', subject_id: '', ca_score: '', exam_score: '' })
 
-  useEffect(() => { fetchClasses(); fetchData() }, [])
+  useEffect(() => { fetchClasses(); fetchData(); fetchAccessControl() }, [])
+  
+  // ✅ Fetch current access control settings when class/term/session changes
+  useEffect(() => {
+    if (accessControlClass && accessControlTerm && accessControlSession) {
+      fetchAccessControl()
+    }
+  }, [accessControlClass, accessControlTerm, accessControlSession])
+
+  const fetchAccessControl = async () => {
+    if (!accessControlClass) return
+    try {
+      const { data } = await supabase
+        .from('report_card_access')
+        .select('*')
+        .eq('class_id', accessControlClass)
+        .eq('term', accessControlTerm)
+        .eq('session', accessControlSession)
+        .single()
+      
+      if (data) {
+        setAccessControlUnlocked(data.is_unlocked)
+        setAccessControlStartDate(data.unlock_start_date ? new Date(data.unlock_start_date).toISOString().split('T')[0] : '')
+        setAccessControlEndDate(data.unlock_end_date ? new Date(data.unlock_end_date).toISOString().split('T')[0] : '')
+      } else {
+        setAccessControlUnlocked(false)
+        setAccessControlStartDate('')
+        setAccessControlEndDate('')
+      }
+    } catch (error) {
+      console.error('Failed to fetch access control:', error)
+    }
+  }
+
+  const saveAccessControl = async () => {
+    if (!accessControlClass) {
+      toast.error('Please select a class')
+      return
+    }
+    if (accessControlUnlocked && (!accessControlStartDate || !accessControlEndDate)) {
+      toast.error('Please set both start and end dates when unlocking')
+      return
+    }
+
+    setAccessControlLoading(true)
+    try {
+      const className = classes.find(c => c.id === accessControlClass)?.class_name || 'Unknown'
+      const adminEmail = user?.primaryEmailAddress?.emailAddress || 'admin'
+
+      // ✅ Upsert access control settings
+      const { error } = await supabase
+        .from('report_card_access')
+        .upsert({
+          class_id: accessControlClass,
+          term: accessControlTerm,
+          session: accessControlSession,
+          is_unlocked: accessControlUnlocked,
+          unlock_start_date: accessControlUnlocked ? accessControlStartDate : null,
+          unlock_end_date: accessControlUnlocked ? accessControlEndDate : null,
+          updated_by: adminEmail,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'class_id,term,session' })
+
+      if (error) throw error
+
+      // ✅ AUDIT LOG
+      if (accessControlUnlocked) {
+        await auditActions.adminUnlockReportCard(
+          adminEmail,
+          className,
+          accessControlTerm,
+          accessControlSession,
+          accessControlStartDate,
+          accessControlEndDate
+        )
+
+        // ✅ SEND NOTIFICATIONS to all students in this class
+        const { data: classStudents } = await supabase
+          .from('students')
+          .select('id, user_id')
+          .eq('class_id', accessControlClass)
+
+        if (classStudents && classStudents.length > 0) {
+          const studentUserIds = classStudents.filter(s => s.user_id).map(s => s.user_id)
+          
+          for (const userId of studentUserIds) {
+            await supabase.from('notifications').insert([{
+              user_id: userId,
+              title: 'Report Card Unlocked 🔓',
+              message: `Your ${accessControlTerm} ${accessControlSession} report card is now available for viewing until ${new Date(accessControlEndDate).toLocaleDateString()}.`,
+              type: 'success',
+              is_read: false,
+              link: '/student'
+            }])
+          }
+        }
+
+        // ✅ NOTIFY PARENTS of students in this class
+        const { data: parents } = await supabase
+          .from('parents')
+          .select('user_id')
+          .contains('students_ids', classStudents?.map(s => s.id) || [])
+
+        if (parents && parents.length > 0) {
+          for (const parent of parents) {
+            if (parent.user_id) {
+              await supabase.from('notifications').insert([{
+                user_id: parent.user_id,
+                title: 'Report Card Unlocked 🔓',
+                message: `Report cards for ${className} (${accessControlTerm} ${accessControlSession}) are now available for viewing until ${new Date(accessControlEndDate).toLocaleDateString()}.`,
+                type: 'success',
+                is_read: false,
+                link: '/parent'
+              }])
+            }
+          }
+        }
+
+        toast.success(`Report card unlocked for ${className}. Notifications sent to students and parents.`)
+      } else {
+        await auditActions.adminLockReportCard(
+          adminEmail,
+          className,
+          accessControlTerm,
+          accessControlSession
+        )
+        toast.success(`Report card locked for ${className}`)
+      }
+    } catch (error: any) {
+      console.error('Failed to save access control:', error)
+      toast.error('Failed: ' + error.message)
+    } finally {
+      setAccessControlLoading(false)
+    }
+  }
 
   const fetchClasses = async () => {
     const { data, error } = await supabase.from('classes').select('id, class_name, arm, department, class_level').order('class_level').order('class_name')
@@ -669,6 +812,98 @@ export default function ResultsPage() {
             <select value={selectedTerm} onChange={(e) => setSelectedTerm(e.target.value)} className="p-2 border rounded text-gray-900 w-full md:w-auto">{termOptions.map(t => <option key={t} value={t}>{t}</option>)}</select>
             <select value={selectedSession} onChange={(e) => setSelectedSession(e.target.value)} className="p-2 border rounded text-gray-900 w-full md:w-auto">{sessionOptions.map(s => <option key={s} value={s}>{s}</option>)}</select>
             <input type="text" placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="col-span-2 md:col-span-1 md:flex-1 p-2 border rounded text-gray-900" />
+          </div>
+
+          {/* ✅ REPORT CARD ACCESS CONTROL SECTION */}
+          <div className="bg-orange-50 border-2 border-orange-200 rounded-xl p-6 mb-6">
+            <h3 className="text-lg font-bold text-orange-900 mb-1 flex items-center gap-2">
+              🔒 Report Card Access Control
+            </h3>
+            <p className="text-sm text-orange-700 mb-4">
+              Lock or unlock report cards for specific classes. When unlocked, students and parents receive notifications.
+            </p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Class</label>
+                <select
+                  value={accessControlClass}
+                  onChange={(e) => setAccessControlClass(e.target.value)}
+                  className="w-full p-2 border rounded text-gray-900 bg-white"
+                >
+                  <option value="">Select class...</option>
+                  {classes.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.class_name} {c.arm ? `(${c.arm})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Term</label>
+                <select
+                  value={accessControlTerm}
+                  onChange={(e) => setAccessControlTerm(e.target.value)}
+                  className="w-full p-2 border rounded text-gray-900 bg-white"
+                >
+                  {termOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Session</label>
+                <select
+                  value={accessControlSession}
+                  onChange={(e) => setAccessControlSession(e.target.value)}
+                  className="w-full p-2 border rounded text-gray-900 bg-white"
+                >
+                  {sessionOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="flex items-end">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={accessControlUnlocked}
+                    onChange={(e) => setAccessControlUnlocked(e.target.checked)}
+                    className="w-5 h-5 text-orange-600 rounded"
+                  />
+                  <span className="font-bold text-gray-900">
+                    {accessControlUnlocked ? '🔓 Unlocked' : '🔒 Locked'}
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            {accessControlUnlocked && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Access Start Date</label>
+                  <input
+                    type="date"
+                    value={accessControlStartDate}
+                    onChange={(e) => setAccessControlStartDate(e.target.value)}
+                    className="w-full p-2 border rounded text-gray-900 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Access End Date</label>
+                  <input
+                    type="date"
+                    value={accessControlEndDate}
+                    onChange={(e) => setAccessControlEndDate(e.target.value)}
+                    className="w-full p-2 border rounded text-gray-900 bg-white"
+                  />
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={saveAccessControl}
+              disabled={!accessControlClass || accessControlLoading}
+              className="bg-orange-600 text-white px-6 py-2 rounded font-bold hover:bg-orange-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              {accessControlLoading ? 'Saving...' : 'Save & Notify'}
+            </button>
           </div>
 
           {activeTab === 'bulk-results' && (

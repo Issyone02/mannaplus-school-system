@@ -88,6 +88,7 @@ export default function ParentPortalPage() {
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [pendingRequests, setPendingRequests] = useState<any[]>([])
   const [reportData, setReportData] = useState<any>(null)
+  const [reportCardAccess, setReportCardAccess] = useState<any>(null)
   
   // ✅ NEW: Term/Session selector state
   const [selectedTerm, setSelectedTerm] = useState<string>('')
@@ -345,8 +346,20 @@ export default function ParentPortalPage() {
         if (child?.class_id && fetched && fetched.length > 0) {
           const positions = await calculateClassPositions(child.class_id, selectedTerm, selectedSession)
           setPositionInfo(positions.get(selectedChild) || null)
+          
+          // ✅ Fetch report card access control
+          const { data: accessData } = await supabase
+            .from('report_card_access')
+            .select('*')
+            .eq('class_id', child.class_id)
+            .eq('term', selectedTerm)
+            .eq('session', selectedSession)
+            .single()
+          
+          setReportCardAccess(accessData || null)
         } else {
           setPositionInfo(null)
+          setReportCardAccess(null)
         }
 
         await fetchStudentReport(selectedChild, selectedTerm, selectedSession)
@@ -392,6 +405,7 @@ export default function ParentPortalPage() {
     setSelectedSession('')
     setAvailableTerms([])
     setAvailableSessions([])
+    setReportCardAccess(null)
   }
 
   if (!isLoaded || loading) {
@@ -403,6 +417,17 @@ export default function ParentPortalPage() {
   }
 
   const selectedStudent = children.find(c => c.id === selectedChild)
+
+  // ✅ SINGLE SOURCE OF TRUTH: is the report card viewable right now?
+  const nowDate = new Date()
+  const reportCardVisible = !!(
+    reportCardAccess &&
+    reportCardAccess.is_unlocked &&
+    reportCardAccess.unlock_start_date &&
+    reportCardAccess.unlock_end_date &&
+    nowDate >= new Date(reportCardAccess.unlock_start_date) &&
+    nowDate <= new Date(reportCardAccess.unlock_end_date)
+  )
 
   const handleDownloadReceipt = async (receipt: any) => {
     if (!selectedStudent) return
@@ -553,7 +578,54 @@ export default function ParentPortalPage() {
                 </div>
               )}
 
-              {positionInfo && (
+              {/* ✅ REPORT CARD LOCK MESSAGE */}
+              {reportCardAccess && !reportCardAccess.is_unlocked && (
+                <div className="mb-6 p-6 bg-red-50 border-2 border-red-300 rounded-xl text-center">
+                  <div className="text-5xl mb-3">🔒</div>
+                  <h3 className="text-xl font-bold text-red-900 mb-2">Report Card Currently Locked</h3>
+                  <p className="text-red-700">
+                    The report card for {selectedTerm} {selectedSession} is currently locked.
+                    <br />
+                    Please contact the school administration when results are ready for viewing.
+                  </p>
+                </div>
+              )}
+              
+              {reportCardAccess && reportCardAccess.is_unlocked && (
+                <>
+                  {new Date() < new Date(reportCardAccess.unlock_start_date) && (
+                    <div className="mb-6 p-6 bg-yellow-50 border-2 border-yellow-300 rounded-xl text-center">
+                      <div className="text-5xl mb-3">⏰</div>
+                      <h3 className="text-xl font-bold text-yellow-900 mb-2">Access Not Yet Available</h3>
+                      <p className="text-yellow-700">
+                        Report cards will be available from <strong>{new Date(reportCardAccess.unlock_start_date).toLocaleDateString()}</strong> to <strong>{new Date(reportCardAccess.unlock_end_date).toLocaleDateString()}</strong>.
+                      </p>
+                    </div>
+                  )}
+                  
+                  {new Date() > new Date(reportCardAccess.unlock_end_date) && (
+                    <div className="mb-6 p-6 bg-orange-50 border-2 border-orange-300 rounded-xl text-center">
+                      <div className="text-5xl mb-3">🔒</div>
+                      <h3 className="text-xl font-bold text-orange-900 mb-2">Access Period Ended</h3>
+                      <p className="text-orange-700">
+                        The viewing period for this report card has ended.
+                        <br />
+                        Contact administration if you need access.
+                      </p>
+                    </div>
+                  )}
+                  
+                  {new Date() >= new Date(reportCardAccess.unlock_start_date) && new Date() <= new Date(reportCardAccess.unlock_end_date) && (
+                    <div className="mb-6 p-4 bg-green-50 border-2 border-green-300 rounded-xl text-center">
+                      <p className="text-green-900 font-bold">
+                        ✅ Report card unlocked and available until {new Date(reportCardAccess.unlock_end_date).toLocaleDateString()}
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {reportCardVisible && positionInfo && (
                 <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
                   <p className="text-sm text-blue-900">
                     <strong>Position:</strong> {positionInfo.position_text} of {positionInfo.total_students} students
@@ -561,88 +633,92 @@ export default function ParentPortalPage() {
                 </div>
               )}
 
-              <UnifiedReportCard 
-                student={{
-                  full_name: selectedStudent.full_name,
-                  admission_number: selectedStudent.admission_number,
-                  class_name: selectedStudent.class_name || 'Unknown',
-                  position: positionInfo ? `${positionInfo.position_text} of ${positionInfo.total_students}` : '-',
-                  no_in_class: positionInfo?.total_students || '-'
-                }}
-                results={results}
-                session={selectedSession || '2025/2026'}
-                term={selectedTerm || 'Third Term'}
-                attendance={{
-                  opened: attendanceStats?.total || 0,
-                  present: attendanceStats?.present || 0,
-                  punctual: (attendanceStats?.total || 0) - (attendanceStats?.late || 0),
-                  beg_term: reportData?.term_begins || '6th April 2026',
-                  end_term: reportData?.term_ends || '6th July 2026',
-                  next_term: reportData?.next_term_begins || ''
-                }}
-                conductRatings={reportData?.conduct_ratings || {
-                  'Attentiveness': 'Excellent',
-                  'Cleanliness': 'Good',
-                  'Emotional Balance': 'Good',
-                  'Honesty': 'Excellent',
-                  'Leadership': 'Good',
-                  'Maturity': 'Good',
-                  'Politeness': 'Excellent',
-                  'Punctuality': 'Excellent'
-                }}
-                physicalSkills={reportData?.physical_skills || {
-                  'Handwriting': 'Good',
-                  'Verbal Fluency': 'Good',
-                  'Debate/Quiz': 'Good',
-                  'Sports': 'Excellent',
-                  'Drawing & Painting': 'Good',
-                  'Musical Skills': 'Fair',
-                  'Handling Tools': 'Good'
-                }}
-                healthComment={reportData?.health_comment || 'Student is fit and healthy'}
-                teacherComment={reportData?.teacher_comment || results[0]?.teacher_comment || 'Good performance'}
-                principalComment={reportData?.principal_comment || results[0]?.principal_comment || 'Keep it up'}
-                teacherSignatureUrl={signUrls.teacher}
-                principalSignatureUrl={signUrls.principal}
-                stampUrl={signUrls.stamp}
-                teacherDate={reportData?.teacher_date || null}
-                headTeacherDate={reportData?.head_teacher_date || null}
-              />
+              {reportCardVisible && (
+                <UnifiedReportCard 
+                  student={{
+                    full_name: selectedStudent.full_name,
+                    admission_number: selectedStudent.admission_number,
+                    class_name: selectedStudent.class_name || 'Unknown',
+                    position: positionInfo ? `${positionInfo.position_text} of ${positionInfo.total_students}` : '-',
+                    no_in_class: positionInfo?.total_students || '-'
+                  }}
+                  results={results}
+                  session={selectedSession || '2025/2026'}
+                  term={selectedTerm || 'Third Term'}
+                  attendance={{
+                    opened: attendanceStats?.total || 0,
+                    present: attendanceStats?.present || 0,
+                    punctual: (attendanceStats?.total || 0) - (attendanceStats?.late || 0),
+                    beg_term: reportData?.term_begins || '6th April 2026',
+                    end_term: reportData?.term_ends || '6th July 2026',
+                    next_term: reportData?.next_term_begins || ''
+                  }}
+                  conductRatings={reportData?.conduct_ratings || {
+                    'Attentiveness': 'Excellent',
+                    'Cleanliness': 'Good',
+                    'Emotional Balance': 'Good',
+                    'Honesty': 'Excellent',
+                    'Leadership': 'Good',
+                    'Maturity': 'Good',
+                    'Politeness': 'Excellent',
+                    'Punctuality': 'Excellent'
+                  }}
+                  physicalSkills={reportData?.physical_skills || {
+                    'Handwriting': 'Good',
+                    'Verbal Fluency': 'Good',
+                    'Debate/Quiz': 'Good',
+                    'Sports': 'Excellent',
+                    'Drawing & Painting': 'Good',
+                    'Musical Skills': 'Fair',
+                    'Handling Tools': 'Good'
+                  }}
+                  healthComment={reportData?.health_comment || 'Student is fit and healthy'}
+                  teacherComment={reportData?.teacher_comment || results[0]?.teacher_comment || 'Good performance'}
+                  principalComment={reportData?.principal_comment || results[0]?.principal_comment || 'Keep it up'}
+                  teacherSignatureUrl={signUrls.teacher}
+                  principalSignatureUrl={signUrls.principal}
+                  stampUrl={signUrls.stamp}
+                  teacherDate={reportData?.teacher_date || null}
+                  headTeacherDate={reportData?.head_teacher_date || null}
+                />
+              )}
               
-              {results.length === 0 ? (
-                <div className="text-center py-8 text-gray-600">
-                  <FileText size={48} className="mx-auto text-gray-300 mb-2"/>
-                  <p>No results available for this term/session</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto mt-6">
-                  <table className="w-full">
-                    <thead className="bg-gray-100 border-b-2 border-gray-200">
-                      <tr>
-                        <th className="p-3 text-left font-bold text-gray-900">Subject</th>
-                        <th className="p-3 text-center font-bold text-gray-900">Term</th>
-                        <th className="p-3 text-center font-bold text-gray-900">Score</th>
-                        <th className="p-3 text-center font-bold text-gray-900">Grade</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {results.map((result, idx) => (
-                        <tr key={idx} className="border-b hover:bg-gray-50">
-                          <td className="p-3 font-bold text-gray-900">{result.subject_name}</td>
-                          <td className="p-3 text-center text-gray-700">{result.term}</td>
-                          <td className="p-3 text-center font-bold text-blue-600">{result.total_score}%</td>
-                          <td className="p-3 text-center">
-                            <span className={`px-2 py-1 rounded text-xs font-bold ${
-                              result.grade.startsWith('A') ? 'bg-green-100 text-green-800' :
-                              result.grade.startsWith('B') ? 'bg-blue-100 text-blue-800' :
-                              result.grade.startsWith('C') ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
-                            }`}>{result.grade}</span>
-                          </td>
+              {reportCardVisible && (
+                results.length === 0 ? (
+                  <div className="text-center py-8 text-gray-600">
+                    <FileText size={48} className="mx-auto text-gray-300 mb-2"/>
+                    <p>No results available for this term/session</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto mt-6">
+                    <table className="w-full">
+                      <thead className="bg-gray-100 border-b-2 border-gray-200">
+                        <tr>
+                          <th className="p-3 text-left font-bold text-gray-900">Subject</th>
+                          <th className="p-3 text-center font-bold text-gray-900">Term</th>
+                          <th className="p-3 text-center font-bold text-gray-900">Score</th>
+                          <th className="p-3 text-center font-bold text-gray-900">Grade</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {results.map((result, idx) => (
+                          <tr key={idx} className="border-b hover:bg-gray-50">
+                            <td className="p-3 font-bold text-gray-900">{result.subject_name}</td>
+                            <td className="p-3 text-center text-gray-700">{result.term}</td>
+                            <td className="p-3 text-center font-bold text-blue-600">{result.total_score}%</td>
+                            <td className="p-3 text-center">
+                              <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                result.grade.startsWith('A') ? 'bg-green-100 text-green-800' :
+                                result.grade.startsWith('B') ? 'bg-blue-100 text-blue-800' :
+                                result.grade.startsWith('C') ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
+                              }`}>{result.grade}</span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )
               )}
             </div>
           </div>

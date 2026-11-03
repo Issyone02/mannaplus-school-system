@@ -184,6 +184,43 @@ export const auditActions = {
     })
   },
 
+  // ✅ REPORT CARD ACCESS CONTROL
+  adminLockReportCard: async (
+    adminEmail: string,
+    className: string,
+    term: string,
+    session: string
+  ) => {
+    await logAuditEvent({
+      userEmail: adminEmail,
+      userRole: 'admin',
+      action: 'lock_report_card',
+      description: `Locked report card access for ${className} (${term} ${session})`,
+      entityType: 'report_card_access',
+      metadata: { className, term, session },
+      severity: 'MEDIUM'
+    })
+  },
+
+  adminUnlockReportCard: async (
+    adminEmail: string,
+    className: string,
+    term: string,
+    session: string,
+    startDate: string,
+    endDate: string
+  ) => {
+    await logAuditEvent({
+      userEmail: adminEmail,
+      userRole: 'admin',
+      action: 'unlock_report_card',
+      description: `Unlocked report card access for ${className} (${term} ${session}) from ${startDate} to ${endDate}`,
+      entityType: 'report_card_access',
+      metadata: { className, term, session, startDate, endDate },
+      severity: 'MEDIUM'
+    })
+  },
+
   // Authentication
   userLogin: (userEmail: string, role: string) =>
     logAuditEvent({

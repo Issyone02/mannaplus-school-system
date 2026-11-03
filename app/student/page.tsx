@@ -26,6 +26,9 @@ export default function StudentDashboardPage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'attendance' | 'results'>('overview')
   const [positionInfo, setPositionInfo] = useState<any>(null)
   const [ signUrls, setSignUrls ] = useState<{ teacher?: string | null; principal?: string | null; stamp?: string |null }>({})
+  const [reportCardAccess, setReportCardAccess] = useState<any>(null)
+  const [selectedTermFilter, setSelectedTermFilter] = useState<string>('')
+  const [selectedSessionFilter, setSelectedSessionFilter] = useState<string>('')
 
   useEffect(() => {
     if (isLoaded && !user) {
@@ -124,6 +127,21 @@ export default function StudentDashboardPage() {
           allResultsData[0].session || '2025/2026'
         )
         setPositionInfo(positions.get(studentData.id) || null)
+        
+        // ✅ Set default filters
+        setSelectedTermFilter(allResultsData[0].term || 'Third Term')
+        setSelectedSessionFilter(allResultsData[0].session || '2025/2026')
+        
+        // ✅ Fetch report card access for current term/session
+        const { data: accessData } = await supabase
+          .from('report_card_access')
+          .select('*')
+          .eq('class_id', studentData.class_id)
+          .eq('term', allResultsData[0].term || 'Third Term')
+          .eq('session', allResultsData[0].session || '2025/2026')
+          .single()
+        
+        setReportCardAccess(accessData || null)
       }
 
       // ✅ Fetch signatures & stamp for the report card
@@ -349,6 +367,109 @@ export default function StudentDashboardPage() {
           <div className="bg-white rounded-xl shadow-md p-6">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">My Academic Results</h2>
             
+            {/* ✅ TERM/SESSION FILTER */}
+            {allResults.length > 0 && (
+              <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Select Session</label>
+                    <select
+                      value={selectedSessionFilter}
+                      onChange={async (e) => {
+                        setSelectedSessionFilter(e.target.value)
+                        const terms = Array.from(new Set(allResults.filter(r => r.session === e.target.value).map(r => r.term)))
+                        if (terms.length > 0) {
+                          setSelectedTermFilter(terms[0])
+                          const { data: accessData } = await supabase
+                            .from('report_card_access')
+                            .select('*')
+                            .eq('class_id', student.class_id)
+                            .eq('term', terms[0])
+                            .eq('session', e.target.value)
+                            .single()
+                          setReportCardAccess(accessData || null)
+                        }
+                      }}
+                      className="w-full p-2 border rounded text-gray-900 font-bold"
+                    >
+                      {Array.from(new Set(allResults.map(r => r.session))).map(s => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Select Term</label>
+                    <select
+                      value={selectedTermFilter}
+                      onChange={async (e) => {
+                        setSelectedTermFilter(e.target.value)
+                        const { data: accessData } = await supabase
+                          .from('report_card_access')
+                          .select('*')
+                          .eq('class_id', student.class_id)
+                          .eq('term', e.target.value)
+                          .eq('session', selectedSessionFilter)
+                          .single()
+                        setReportCardAccess(accessData || null)
+                      }}
+                      className="w-full p-2 border rounded text-gray-900 font-bold"
+                    >
+                      {Array.from(new Set(allResults.filter(r => r.session === selectedSessionFilter).map(r => r.term))).map(t => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* ✅ REPORT CARD LOCK MESSAGE */}
+            {reportCardAccess && !reportCardAccess.is_unlocked && (
+              <div className="mb-6 p-6 bg-red-50 border-2 border-red-300 rounded-xl text-center">
+                <div className="text-5xl mb-3">🔒</div>
+                <h3 className="text-xl font-bold text-red-900 mb-2">Report Card Currently Locked</h3>
+                <p className="text-red-700">
+                  Your report card for {selectedTermFilter} {selectedSessionFilter} is currently locked.
+                  <br />
+                  Please contact the school administration when results are ready for viewing.
+                </p>
+              </div>
+            )}
+            
+            {reportCardAccess && reportCardAccess.is_unlocked && (
+              <>
+                {new Date() < new Date(reportCardAccess.unlock_start_date) && (
+                  <div className="mb-6 p-6 bg-yellow-50 border-2 border-yellow-300 rounded-xl text-center">
+                    <div className="text-5xl mb-3">⏰</div>
+                    <h3 className="text-xl font-bold text-yellow-900 mb-2">Access Not Yet Available</h3>
+                    <p className="text-yellow-700">
+                      Report cards will be available from <strong>{new Date(reportCardAccess.unlock_start_date).toLocaleDateString()}</strong> to <strong>{new Date(reportCardAccess.unlock_end_date).toLocaleDateString()}</strong>.
+                    </p>
+                  </div>
+                )}
+                
+                {new Date() > new Date(reportCardAccess.unlock_end_date) && (
+                  <div className="mb-6 p-6 bg-orange-50 border-2 border-orange-300 rounded-xl text-center">
+                    <div className="text-5xl mb-3">🔒</div>
+                    <h3 className="text-xl font-bold text-orange-900 mb-2">Access Period Ended</h3>
+                    <p className="text-orange-700">
+                      The viewing period for this report card has ended.
+                      <br />
+                      Contact administration if you need access.
+                    </p>
+                  </div>
+                )}
+                
+                {new Date() >= new Date(reportCardAccess.unlock_start_date) && new Date() <= new Date(reportCardAccess.unlock_end_date) && (
+                  <div className="mb-6 p-4 bg-green-50 border-2 border-green-300 rounded-xl text-center">
+                    <p className="text-green-900 font-bold">
+                      ✅ Report card unlocked and available until {new Date(reportCardAccess.unlock_end_date).toLocaleDateString()}
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+            
             {positionInfo && (
               <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
                 <p className="text-sm text-blue-900">
@@ -357,7 +478,8 @@ export default function StudentDashboardPage() {
               </div>
             )}
 
-            <UnifiedReportCard 
+            {reportCardAccess && reportCardAccess.is_unlocked && new Date() >= new Date(reportCardAccess.unlock_start_date) && new Date() <= new Date(reportCardAccess.unlock_end_date) && (
+              <UnifiedReportCard
               student={{
                 full_name: student.full_name,
                 admission_number: student.admission_number,
@@ -402,6 +524,7 @@ export default function StudentDashboardPage() {
               principalSignatureUrl={signUrls.principal}
               stampUrl={signUrls.stamp}
             />
+            )}
 
             {allResults.length === 0 ? (
               <div className="text-center py-8 text-gray-600">
