@@ -10,6 +10,20 @@ import { generateVerificationToken } from '@/lib/documentVerification'
 import { useUser } from '@clerk/nextjs'; // Add this if not present
 import { auditActions } from '@/lib/auditLog'; // Add this if not present
 
+// ✅ DYNAMIC TERM/SESSION (same rule as Results page)
+const getCurrentTerm = () => {
+  const month = new Date().getMonth() + 1
+  if (month >= 9) return 'First Term'
+  if (month <= 3) return 'Second Term'
+  return 'Third Term'
+}
+const getCurrentSession = () => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth() + 1
+  return month >= 9 ? `${year}/${year + 1}` : `${year - 1}/${year}`
+}
+
 interface FeeStructure {
   id: string
   name: string
@@ -58,6 +72,9 @@ export default function FeeManagementPage() {
   const [paymentsPage, setPaymentsPage] = useState(1)
   const [paymentsTotal, setPaymentsTotal] = useState(0)
   const [totalCollected, setTotalCollected] = useState(0)
+  const [termExpected, setTermExpected] = useState(0)         // ✅ This term's billable total
+  const [termPaid, setTermPaid] = useState(0)                 // ✅ Collected within this term
+  const [expectedStudentCount, setExpectedStudentCount] = useState(0)
   const paymentsPageSize = 50
   const [feeStructures, setFeeStructures] = useState<FeeStructure[]>([])
   const [payments, setPayments] = useState<PaymentRecord[]>([])
@@ -120,6 +137,17 @@ export default function FeeManagementPage() {
     ])
     const { data: collected } = await supabase.rpc('total_collected')
     setTotalCollected(Number(collected || 0))
+
+    // ✅ TERM-SCOPED financial summary (expected / paid / outstanding for current term only)
+    const { data: fin } = await supabase.rpc('financial_summary', {
+      p_term: getCurrentTerm(),
+      p_session: getCurrentSession(),
+    })
+    const row = Array.isArray(fin) ? fin[0] : fin
+    setTermExpected(Number(row?.term_expected || 0))
+    setTermPaid(Number(row?.term_paid || 0))
+    setExpectedStudentCount(Number(row?.student_count || 0))
+
     setLoading(false)
   }
 
@@ -669,27 +697,35 @@ export default function FeeManagementPage() {
         </div>
       </div>
 
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6 mb-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 mb-6">
         <div className="center-mobile bg-white rounded-xl shadow-md p-4 md:p-6 border border-gray-200">
           <div className="flex items-center justify-center mb-3 md:mb-4">
             <div className="p-2 md:p-3 rounded-lg bg-green-500"><TrendingUp className="text-white" size={24} /></div>
           </div>
           <h3 className="text-lg md:text-2xl font-bold text-green-600 break-words">₦{totalCollected.toLocaleString()}</h3>
-          <p className="text-gray-600 text-xs md:text-sm font-medium text-center">Collected</p>
+          <p className="text-gray-600 text-xs md:text-sm font-medium text-center">Collected (All Time)</p>
         </div>
         <div className="center-mobile bg-white rounded-xl shadow-md p-4 md:p-6 border border-gray-200">
           <div className="flex items-center justify-center mb-3 md:mb-4">
             <div className="p-2 md:p-3 rounded-lg bg-blue-500"><FileText className="text-white" size={24} /></div>
           </div>
-          <h3 className="text-lg md:text-2xl font-bold text-blue-600 break-words">₦{totalStructures.toLocaleString()}</h3>
-          <p className="text-gray-600 text-xs md:text-sm font-medium text-center">Structures</p>
+          <h3 className="text-lg md:text-2xl font-bold text-blue-600 break-words">₦{termExpected.toLocaleString()}</h3>
+          <p className="text-gray-600 text-xs md:text-sm font-medium text-center">Expected — {getCurrentTerm()} {getCurrentSession()}</p>
+          <p className="text-[10px] text-gray-500 font-medium text-center mt-1">{expectedStudentCount} active students billed</p>
+        </div>
+        <div className="center-mobile bg-white rounded-xl shadow-md p-4 md:p-6 border border-gray-200">
+          <div className="flex items-center justify-center mb-3 md:mb-4">
+            <div className="p-2 md:p-3 rounded-lg bg-purple-500"><TrendingUp className="text-white" size={24} /></div>
+          </div>
+          <h3 className="text-lg md:text-2xl font-bold text-purple-600 break-words">₦{termPaid.toLocaleString()}</h3>
+          <p className="text-gray-600 text-xs md:text-sm font-medium text-center">Collected — This Term</p>
         </div>
         <div className="center-mobile bg-white rounded-xl shadow-md p-4 md:p-6 border border-gray-200">
           <div className="flex items-center justify-center mb-3 md:mb-4">
             <div className="p-2 md:p-3 rounded-lg bg-orange-500"><TrendingDown className="text-white" size={24} /></div>
           </div>
-          <h3 className="text-lg md:text-2xl font-bold text-orange-600 break-words">₦{Math.max(0, totalStructures - totalCollected).toLocaleString()}</h3>
-          <p className="text-gray-600 text-xs md:text-sm font-medium text-center">Pending</p>
+          <h3 className="text-lg md:text-2xl font-bold text-orange-600 break-words">₦{Math.max(0, termExpected - termPaid).toLocaleString()}</h3>
+          <p className="text-gray-600 text-xs md:text-sm font-medium text-center">Outstanding Debt — This Term</p>
         </div>
       </div>
 
