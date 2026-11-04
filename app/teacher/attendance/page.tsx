@@ -84,41 +84,47 @@ function TeacherAttendanceContent() {
     }
   }, [selectedClass, selectedDate])
 
-  // ✅ NEW: Fetch teacher's assigned classes
+  // ✅ ROBUST: case-insensitive lookup, duplicate-safe, reads ALL 3 assignment sources, never hangs
   const fetchTeacherClasses = async () => {
     try {
       const email = user?.emailAddresses[0]?.emailAddress
-      if (!email) return
-
-      // 1. Get teacher info
-      const { data: teacher } = await supabase
-        .from('teachers')
-        .select('id, form_class_id, subjects')
-        .eq('email', email)
-        .single()
-
-      if (!teacher) {
-        toast.error('Teacher account not found')
+      if (!email) {
+        setLoading(false)
         return
       }
 
-      // 2. Get class IDs from both form_class_id and teacher_assignments
-      const classIds = new Set<string>()
-      if (teacher.form_class_id) {
-        classIds.add(teacher.form_class_id)
+      // 1. Teacher lookup: ilike = case-insensitive, limit(1) = safe if duplicate rows exist
+      const { data: teacherRows } = await supabase
+        .from('teachers')
+        .select('id, form_class_id, form_class_ids, subjects')
+        .ilike('email', email)
+        .limit(1)
+
+      const teacher = teacherRows?.[0] || null
+
+      if (!teacher) {
+        toast.error('No teacher record matches this login email. Contact admin.')
+        setLoading(false) // ✅ Stop the infinite spinner
+        return
       }
 
-      // Fetch assignments
+      // 2. Union of ALL assignment sources
+      const classIds = new Set<string>()
+      if (teacher.form_class_id) classIds.add(teacher.form_class_id)
+      ;(teacher.form_class_ids || []).forEach((id: string) => id && classIds.add(id))
+
       const { data: assignments } = await supabase
         .from('teacher_assignments')
         .select('class_id')
         .eq('teacher_id', teacher.id)
+      assignments?.forEach(a => a.class_id && classIds.add(a.class_id))
 
-      if (assignments) {
-        assignments.forEach(a => {
-          if (a.class_id) classIds.add(a.class_id)
-        })
-      }
+      // ✅ THE MISSING SOURCE: classes assigned from the Classes page
+      const { data: formClasses } = await supabase
+        .from('classes')
+        .select('id')
+        .eq('teacher_id', teacher.id)
+      formClasses?.forEach(c => c.id && classIds.add(c.id))
 
       // 3. Fetch class details
       if (classIds.size > 0) {
@@ -129,16 +135,19 @@ function TeacherAttendanceContent() {
           .order('class_name')
 
         setClasses(classesData || [])
-        
-        // Auto-select first class if available
         if (classesData && classesData.length > 0) {
           setSelectedClass(classesData[0].id)
+        } else {
+          setLoading(false)
         }
+      } else {
+        setClasses([])
+        setLoading(false) // ✅ No classes → render empty state, not eternal spinner
       }
-
     } catch (error: any) {
       console.error('Error fetching classes:', error)
       toast.error('Failed to load classes')
+      setLoading(false)
     }
   }
 

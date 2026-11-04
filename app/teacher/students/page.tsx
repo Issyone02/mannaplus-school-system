@@ -86,32 +86,44 @@ export default function TeacherStudentsPage() {
   const fetchTeacherClasses = async () => {
     try {
       const email = user?.emailAddresses[0]?.emailAddress
-      if (!email) return
-
-      const { data: teacher } = await supabase
-        .from('teachers')
-        .select('id, form_class_id')
-        .eq('email', email)
-        .single()
-
-      if (!teacher) return
-
-      // Get class IDs from both form_class_id and teacher_assignments
-      const classIds = new Set<string>()
-      if (teacher.form_class_id) {
-        classIds.add(teacher.form_class_id)
+      if (!email) {
+        setLoading(false)
+        return
       }
+
+      // ✅ CASE-INSENSITIVE + duplicate-safe lookup
+      const { data: teacherRows } = await supabase
+        .from('teachers')
+        .select('id, form_class_id, form_class_ids')
+        .ilike('email', email)
+        .limit(1)
+
+      const teacher = teacherRows?.[0] || null
+
+      if (!teacher) {
+        toast.error('No teacher record matches this login email. Contact admin.')
+        setClasses([])
+        setLoading(false)
+        return
+      }
+
+      // ✅ Union of ALL 3 assignment sources (including classes.teacher_id)
+      const classIds = new Set<string>()
+      if (teacher.form_class_id) classIds.add(teacher.form_class_id)
+      ;(teacher.form_class_ids || []).forEach((id: string) => id && classIds.add(id))
 
       const { data: assignments } = await supabase
         .from('teacher_assignments')
         .select('class_id')
         .eq('teacher_id', teacher.id)
+      assignments?.forEach(a => a.class_id && classIds.add(a.class_id))
 
-      if (assignments) {
-        assignments.forEach(a => {
-          if (a.class_id) classIds.add(a.class_id)
-        })
-      }
+      // ✅ THE MISSING SOURCE: classes assigned from the Classes page
+      const { data: formClasses } = await supabase
+        .from('classes')
+        .select('id')
+        .eq('teacher_id', teacher.id)
+      formClasses?.forEach(c => c.id && classIds.add(c.id))
 
       // Fetch class details
       if (classIds.size > 0) {
@@ -122,9 +134,18 @@ export default function TeacherStudentsPage() {
           .order('class_name')
 
         setClasses(classesData || [])
+        if (!classesData || classesData.length === 0) {
+          setLoading(false) // No matching class rows despite IDs — stop spinner
+        }
+      } else {
+        setClasses([])
+        setLoading(false) // ✅ No assignments at all — show empty state, not spinner
       }
     } catch (error: any) {
+      console.error('fetchTeacherClasses error:', error)
       toast.error('Failed: ' + error.message)
+      setClasses([])
+      setLoading(false)
     }
   }
 

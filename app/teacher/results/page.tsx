@@ -129,14 +129,27 @@ export default function TeacherResultsPage() {
       const email = user?.emailAddresses[0]?.emailAddress
       if (!email) { setLoading(false); return }
 
-      const { data: teacher } = await supabase.from('teachers').select('id, form_class_id').eq('email', email).single()
+      // ✅ CASE-INSENSITIVE + duplicate-safe lookup (ilike + limit instead of eq + single)
+      const { data: teacherRows } = await supabase
+        .from('teachers')
+        .select('id, form_class_id, form_class_ids')
+        .ilike('email', email)
+        .limit(1)
+
+      const teacher = teacherRows?.[0] || null
       if (!teacher) { toast.error('Teacher account not found'); setLoading(false); return }
 
+      // ✅ Union of ALL assignment sources
       const classIds = new Set<string>()
       if (teacher.form_class_id) classIds.add(teacher.form_class_id)
+      ;(teacher.form_class_ids || []).forEach((id: string) => id && classIds.add(id))
 
       const { data: assignments } = await supabase.from('teacher_assignments').select('class_id').eq('teacher_id', teacher.id)
       if (assignments) assignments.forEach(a => { if (a.class_id) classIds.add(a.class_id) })
+
+      // ✅ THE MISSING SOURCE: classes assigned from the Classes page
+      const { data: formClasses } = await supabase.from('classes').select('id').eq('teacher_id', teacher.id)
+      if (formClasses) formClasses.forEach((c: any) => { if (c.id) classIds.add(c.id) })
 
       if (classIds.size > 0) {
         const { data: classesData } = await supabase.from('classes')
@@ -144,12 +157,15 @@ export default function TeacherResultsPage() {
           .in('id', Array.from(classIds)).order('class_name')
 
         setClasses(classesData || [])
-        setTeacherClassIds(Array.from(classIds))
+        setTeacherClassIds((classesData || []).map(c => c.id)) // ✅ Only IDs that truly exist
 
         if (classesData && classesData.length > 0) {
           setSelectedClass(classesData[0].id)
           setSelectedDepartment(classesData[0].department || '') // ✅ Auto-apply department
         }
+      } else {
+        setClasses([])
+        setTeacherClassIds([])
       }
     } catch (error) {
       console.error('Failed to load classes:', error)
