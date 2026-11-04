@@ -884,9 +884,9 @@ export default function StudentsPage() {
         )}
       </main>
 
-      {/* ✅ View Student Modal */}
+      {/* ✅ View Student Modal (z-[70] so it opens ABOVE the grid directory) */}
       {showViewModal && viewingStudent && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[70]">
           <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white z-10">
               <h2 className="text-xl font-bold text-gray-900">Student Profile</h2>
@@ -1022,7 +1022,12 @@ export default function StudentsPage() {
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                   {gridStudents.map(student => (
-                    <div key={student.id} className="bg-white border-2 border-gray-200 rounded-xl p-4 hover:border-blue-300 hover:shadow-lg transition-all text-center group">
+                    <div
+                      key={student.id}
+                      onClick={() => handleView(student)}
+                      title="Click to view full profile"
+                      className="bg-white border-2 border-gray-200 rounded-xl p-4 hover:border-blue-300 hover:shadow-lg transition-all text-center group cursor-pointer"
+                    >
                       <div className="w-24 h-24 mx-auto rounded-full overflow-hidden border-4 border-gray-100 bg-gray-50 mb-3 group-hover:border-blue-200 transition-colors">
                         {student.passport_url ? (
                           <img src={student.passport_url} alt={student.full_name} className="w-full h-full object-cover" loading="lazy" />
@@ -1037,6 +1042,9 @@ export default function StudentsPage() {
                       <span className={`inline-block px-2 py-1 rounded text-xs font-bold ${student.classes?.class_level === 'SS' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>
                         {formatClassName(student.classes)}
                       </span>
+                      <p className="text-[10px] text-blue-600 font-bold mt-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                        <Eye size={12} /> View Profile
+                      </p>
                     </div>
                   ))}
                 </div>
