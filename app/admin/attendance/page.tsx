@@ -569,12 +569,15 @@ export default function AttendancePage() {
       <div className="bg-white rounded-lg shadow overflow-x-auto">
         <table className="w-full min-w-[800px]">
             <thead className="bg-gray-50">
-              <tr>
+              <tr className={isWeekend ? 'bg-amber-100' : ''}>
                 <th className="p-3 text-left text-gray-900 font-bold">Admission No</th>
                 <th className="text-gray-900 font-bold">Student Name</th>
                 <th className="text-gray-900 font-bold text-center">Status</th>
                 <th className="text-gray-900 font-bold text-center">Actions</th>
                 <th className="text-gray-900 font-bold">Note (Optional)</th>
+                {isWeekend && (
+                  <th className="text-amber-700 font-bold text-xs">📅 Weekend</th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -590,9 +593,10 @@ export default function AttendancePage() {
                 filteredStudents.map(student => {
                   const record = attendance[student.id]
                   const isLocked = record?.is_locked && !isUnlocked
+                  const isWeekendDay = isWeekend // ✅ Use the existing boolean variable
                   
                   return (
-                    <tr key={student.id} className="border-t hover:bg-gray-50">
+                    <tr key={student.id} className={`border-t ${isWeekendDay ? 'bg-amber-50' : 'hover:bg-gray-50'}`}>
                       <td className="p-3 text-gray-900 font-medium">{student.admission_number}</td>
                       <td className="text-gray-900">{student.full_name}</td>
                       <td className="p-3">

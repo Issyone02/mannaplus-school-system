@@ -540,79 +540,85 @@ function TeacherAttendanceContent() {
         <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50">
+              <thead className={`bg-gray-50 ${isWeekend ? 'bg-amber-100' : ''}`}>
                 <tr>
                   <th className="p-3 text-left text-gray-900 font-bold">Admission No</th>
                   <th className="text-gray-900 font-bold">Student Name</th>
                   <th className="text-gray-900 font-bold text-center">Status</th>
                   <th className="text-gray-900 font-bold text-center">Actions</th>
                   <th className="text-gray-900 font-bold">Note</th>
+                  {isWeekend && (
+                    <th className="text-amber-700 font-bold text-xs">📅 Weekend</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {students.map(student => (
-                  <tr key={student.id} className={isLocked ? 'bg-gray-100' : 'hover:bg-gray-50'}>
-                    <td className="p-3 text-gray-900 font-medium">{student.admission_number}</td>
-                    <td className="text-gray-900 font-bold">{student.full_name}</td>
-                    <td className="p-3">
-                      <div className="flex gap-2 justify-center flex-wrap">
+                {students.map(student => {
+                  const isWeekendDay = isWeekend
+                  return (
+                    <tr key={student.id} className={`${isLocked ? 'bg-gray-100' : 'hover:bg-gray-50'} ${isWeekendDay ? 'bg-amber-50' : ''}`}>
+                      <td className="p-3 text-gray-900 font-medium">{student.admission_number}</td>
+                      <td className="text-gray-900 font-bold">{student.full_name}</td>
+                      <td className="p-3">
+                        <div className="flex gap-2 justify-center flex-wrap">
+                          <button
+                            onClick={() => handleStatusChange(student.id, 'present')}
+                            disabled={isLocked || isWeekend}
+                            className={`${getStatusButtonClass(student.id, 'present')} ${(isLocked || isWeekend) ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
+                          >
+                            <CheckCircle size={14} className="inline mr-1"/> Present
+                          </button>
+                          <button
+                            onClick={() => handleStatusChange(student.id, 'absent')}
+                            disabled={isLocked || isWeekend}
+                            className={`${getStatusButtonClass(student.id, 'absent')} ${(isLocked || isWeekend) ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
+                          >
+                            <XCircle size={14} className="inline mr-1"/> Absent
+                          </button>
+                          <button
+                            onClick={() => handleStatusChange(student.id, 'late')}
+                            disabled={isLocked || isWeekend}
+                            className={`${getStatusButtonClass(student.id, 'late')} ${(isLocked || isWeekend) ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
+                          >
+                            <Clock size={14} className="inline mr-1"/> Late
+                          </button>
+                          <button
+                            onClick={() => handleStatusChange(student.id, 'holiday')}
+                            disabled={isLocked || isWeekend}
+                            className={`${getStatusButtonClass(student.id, 'holiday')} ${(isLocked || isWeekend) ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
+                          >
+                            <AlertCircle size={14} className="inline mr-1"/> Holiday
+                          </button>
+                        </div>
+                      </td>
+                      <td className="p-3 text-center">
                         <button
-                          onClick={() => handleStatusChange(student.id, 'present')}
-                          disabled={isLocked || isWeekend}
-                          className={`${getStatusButtonClass(student.id, 'present')} ${(isLocked || isWeekend) ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
+                          onClick={() => {
+                            setSummaryStudent(student)
+                            setIsSummaryOpen(true)
+                          }}
+                          className="text-blue-600 hover:text-blue-800 font-bold text-sm border border-blue-600 px-3 py-1 rounded hover:bg-blue-50"
                         >
-                          <CheckCircle size={14} className="inline mr-1"/> Present
+                          View Summary
                         </button>
-                        <button
-                          onClick={() => handleStatusChange(student.id, 'absent')}
+                      </td>
+                      <td className="p-3">
+                        <input
+                          type="text"
+                          value={attendance[student.id]?.note || ''}
+                          onChange={(e) => handleNoteChange(student.id, e.target.value)}
                           disabled={isLocked || isWeekend}
-                          className={`${getStatusButtonClass(student.id, 'absent')} ${(isLocked || isWeekend) ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
-                        >
-                          <XCircle size={14} className="inline mr-1"/> Absent
-                        </button>
-                        <button
-                          onClick={() => handleStatusChange(student.id, 'late')}
-                          disabled={isLocked || isWeekend}
-                          className={`${getStatusButtonClass(student.id, 'late')} ${(isLocked || isWeekend) ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
-                        >
-                          <Clock size={14} className="inline mr-1"/> Late
-                        </button>
-                        <button
-                          onClick={() => handleStatusChange(student.id, 'holiday')}
-                          disabled={isLocked || isWeekend}
-                          className={`${getStatusButtonClass(student.id, 'holiday')} ${(isLocked || isWeekend) ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
-                        >
-                          <AlertCircle size={14} className="inline mr-1"/> Holiday
-                        </button>
-                      </div>
-                    </td>
-                    <td className="p-3 text-center">
-                      <button
-                        onClick={() => {
-                          setSummaryStudent(student)
-                          setIsSummaryOpen(true)
-                        }}
-                        className="text-blue-600 hover:text-blue-800 font-bold text-sm border border-blue-600 px-3 py-1 rounded hover:bg-blue-50"
-                      >
-                        View Summary
-                      </button>
-                    </td>
-                    <td className="p-3">
-                      <input
-                        type="text"
-                        value={attendance[student.id]?.note || ''}
-                        onChange={(e) => handleNoteChange(student.id, e.target.value)}
-                        disabled={isLocked || isWeekend}
-                        placeholder={isWeekend ? 'Weekend' : isLocked ? 'Locked' : 'Add note...'}
-                        className={`w-full p-2 border rounded text-sm ${
-                          (isLocked || isWeekend)
-                            ? 'bg-gray-200 cursor-not-allowed text-gray-500' 
-                            : 'bg-white text-gray-900'
-                        }`}
-                      />
-                    </td>
-                  </tr>
-                ))}
+                          placeholder={isWeekend ? 'Weekend' : isLocked ? 'Locked' : 'Add note...'}
+                          className={`w-full p-2 border rounded text-sm ${
+                            (isLocked || isWeekend)
+                              ? 'bg-gray-200 cursor-not-allowed text-gray-500' 
+                              : 'bg-white text-gray-900'
+                          }`}
+                        />
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>

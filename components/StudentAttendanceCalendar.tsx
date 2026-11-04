@@ -77,9 +77,15 @@ export default function StudentAttendanceCalendar({ studentId, compact = false }
       case 'present': return <CheckCircle size={compact ? 10 : 14} className="text-white"/>
       case 'absent': return <XCircle size={compact ? 10 : 14} className="text-white"/>
       case 'late': return <Clock size={compact ? 10 : 14} className="text-white"/>
-      case 'holiday': return <AlertCircle size={compact ? 10 : 14} className="text-white"/> // ✅ Unified to 'holiday'
+      case 'holiday': return <AlertCircle size={compact ? 10 : 14} className="text-white"/>
       default: return null
     }
+  }
+
+  // ✅ Helper to detect weekends
+  const isWeekend = (day: number) => {
+    const dayOfWeek = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day).getDay()
+    return dayOfWeek === 0 || dayOfWeek === 6
   }
 
   const renderCalendar = () => {
@@ -98,15 +104,18 @@ export default function StudentAttendanceCalendar({ studentId, compact = false }
     for (let day = 1; day <= daysInMonth; day++) {
       const dayAttendance = getAttendanceForDay(day)
       const isToday = new Date().toDateString() === new Date(year, month, day).toDateString()
+      const weekend = isWeekend(day)
 
       days.push(
         <div 
           key={day} 
           className={`${compact ? 'h-16' : 'h-24'} border border-gray-200 p-1 relative transition-all ${
             isToday ? 'ring-2 ring-blue-400 ring-offset-1' : ''
-          }`}
+          } ${weekend && !dayAttendance ? 'bg-amber-50' : ''}`}
         >
-          <div className={`font-bold ${compact ? 'text-xs' : 'text-sm'} mb-1 ${isToday ? 'text-blue-600' : 'text-gray-700'}`}>
+          <div className={`font-bold ${compact ? 'text-xs' : 'text-sm'} mb-1 ${
+            isToday ? 'text-blue-600' : (weekend ? 'text-amber-700' : 'text-gray-700')
+          }`}>
             {day}
           </div>
           
@@ -120,7 +129,9 @@ export default function StudentAttendanceCalendar({ studentId, compact = false }
               )}
             </div>
           ) : (
-            <div className={`text-gray-400 ${compact ? 'text-[10px]' : 'text-xs'} text-center mt-1`}>No record</div>
+            <div className={`text-gray-400 ${compact ? 'text-[10px]' : 'text-xs'} text-center mt-1`}>
+              {weekend ? 'Weekend' : 'No record'}
+            </div>
           )}
         </div>
       )
@@ -182,11 +193,19 @@ export default function StudentAttendanceCalendar({ studentId, compact = false }
       {/* Calendar Grid */}
       <div className="p-3">
         <div className="grid grid-cols-7 gap-0.5 mb-1">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-            <div key={day} className={`text-center font-bold ${compact ? 'text-[10px]' : 'text-sm'} py-1.5 bg-gray-100 rounded`}>
-              {day}
-            </div>
-          ))}
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => {
+            const isWeekendDay = index === 0 || index === 6
+            return (
+              <div 
+                key={day} 
+                className={`text-center font-bold ${compact ? 'text-[10px]' : 'text-sm'} py-1.5 rounded ${
+                  isWeekendDay ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-700'
+                }`}
+              >
+                {day}
+              </div>
+            )
+          })}
         </div>
         <div className="grid grid-cols-7 gap-0.5">
           {loading ? (
