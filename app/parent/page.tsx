@@ -970,6 +970,7 @@ export default function ParentPortalPage() {
                     <div className="flex items-center gap-2"><div className="w-6 h-6 bg-red-500 rounded flex items-center justify-center"><XCircle size={12} className="text-white"/></div><span className="text-sm text-gray-700">Absent</span></div>
                     <div className="flex items-center gap-2"><div className="w-6 h-6 bg-yellow-500 rounded flex items-center justify-center"><Clock size={12} className="text-white"/></div><span className="text-sm text-gray-700">Late</span></div>
                     <div className="flex items-center gap-2"><div className="w-6 h-6 bg-blue-500 rounded flex items-center justify-center"><AlertCircle size={12} className="text-white"/></div><span className="text-sm text-gray-700">Holiday</span></div>
+                    <div className="flex items-center gap-2"><div className="w-6 h-6 bg-amber-100 border border-amber-300 rounded flex items-center justify-center"><span className="text-amber-700 text-[9px] font-bold">W/E</span></div><span className="text-sm text-gray-700">Weekend</span></div>
                   </div>
                 </div>
               </div>

@@ -26,12 +26,15 @@ export default function StudentAttendanceCalendar({ studentId, compact = false }
   const fetchAttendance = async () => {
     setLoading(true)
     try {
-      const startDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1)
-        .toISOString()
-        .split('T')[0]
-      const endDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0)
-        .toISOString()
-        .split('T')[0]
+      // ✅ TIMEZONE-SAFE: build YYYY-MM-DD strings locally.
+      // (toISOString() shifts Nigeria midnight back one day in UTC,
+      //  which silently dropped the LAST DAY of every month from the query)
+      const pad = (n: number) => String(n).padStart(2, '0')
+      const year = currentMonth.getFullYear()
+      const month = currentMonth.getMonth() + 1
+      const lastDay = new Date(year, month, 0).getDate()
+      const startDate = `${year}-${pad(month)}-01`
+      const endDate = `${year}-${pad(month)}-${pad(lastDay)}`
 
       const { data, error } = await supabase
         .from('attendance')
