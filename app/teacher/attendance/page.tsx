@@ -660,6 +660,13 @@ function TeacherAttendanceContent() {
               </div>
               <span className="text-sm text-gray-700 font-medium">Holiday</span>
             </div>
+            {/* ✅ Added Weekend to Legend */}
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded bg-amber-100 border border-amber-300 flex items-center justify-center">
+                <span className="text-amber-700 text-[10px] font-bold">W/E</span>
+              </div>
+              <span className="text-sm text-gray-700 font-medium">Weekend</span>
+            </div>
           </div>
         </div>
 

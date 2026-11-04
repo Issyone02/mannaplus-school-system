@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight, CheckCircle, XCircle, Clock, AlertCircle } f
 
 interface AttendanceRecord {
   date: string
-  status: 'present' | 'absent' | 'late' | 'excused'
+  status: 'present' | 'absent' | 'late' | 'holiday'
 }
 
 interface StudentAttendanceCalendarProps {
@@ -67,7 +67,7 @@ export default function StudentAttendanceCalendar({ studentId, compact = false }
       case 'present': return 'bg-green-500 hover:bg-green-600'
       case 'absent': return 'bg-red-500 hover:bg-red-600'
       case 'late': return 'bg-yellow-500 hover:bg-yellow-600'
-      case 'excused': return 'bg-blue-500 hover:bg-blue-600'
+      case 'holiday': return 'bg-blue-500 hover:bg-blue-600' // ✅ Unified to 'holiday'
       default: return 'bg-gray-100'
     }
   }
@@ -77,7 +77,7 @@ export default function StudentAttendanceCalendar({ studentId, compact = false }
       case 'present': return <CheckCircle size={compact ? 10 : 14} className="text-white"/>
       case 'absent': return <XCircle size={compact ? 10 : 14} className="text-white"/>
       case 'late': return <Clock size={compact ? 10 : 14} className="text-white"/>
-      case 'excused': return <AlertCircle size={compact ? 10 : 14} className="text-white"/>
+      case 'holiday': return <AlertCircle size={compact ? 10 : 14} className="text-white"/> // ✅ Unified to 'holiday'
       default: return null
     }
   }
