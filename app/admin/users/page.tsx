@@ -19,11 +19,21 @@ interface AppUser {
   active: boolean;
 }
 
+interface ClassItem {
+  id: string;
+  class_name: string;
+  arm: string | null;
+  department: string | null;
+}
+
 export default function UserManagementPage() {
   const { getToken } = useAuth(); // ✅ Added getToken
   const [users, setUsers] = useState<AppUser[]>([]);
+  const [classes, setClasses] = useState<ClassItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterClass, setFilterClass] = useState(''); // ✅ Class filter
+  const [classFilterUserIds, setClassFilterUserIds] = useState<Set<string>>(new Set()); // ✅ User IDs linked to selected class
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
   const [formData, setFormData] = useState({
@@ -40,7 +50,17 @@ export default function UserManagementPage() {
 
   useEffect(() => {
     fetchUsers();
+    fetchClasses(); // ✅ Fetch classes for filter
   }, []);
+
+  // ✅ Fetch user_ids linked to selected class when filter changes
+  useEffect(() => {
+    if (filterClass) {
+      fetchClassFilterUserIds(filterClass);
+    } else {
+      setClassFilterUserIds(new Set());
+    }
+  }, [filterClass]);
 
   const fetchUsers = async () => {
     const { data, error } = await supabase.from('users').select('*').order('created_at', { ascending: false });
@@ -50,6 +70,74 @@ export default function UserManagementPage() {
       setUsers(data || []);
     }
     setLoading(false);
+  };
+
+  const fetchClasses = async () => {
+    const { data, error } = await supabase
+      .from('classes')
+      .select('id, class_name, arm, department')
+      .order('class_level')
+      .order('class_name');
+    if (!error && data) {
+      setClasses(data);
+    }
+  };
+
+  // ✅ Fetch all user_ids associated with a class (students + teachers + parents)
+  const fetchClassFilterUserIds = async (classId: string) => {
+    const userIds = new Set<string>();
+
+    // 1. Students in this class
+    const { data: students } = await supabase
+      .from('students')
+      .select('user_id')
+      .eq('class_id', classId)
+      .eq('active', true);
+    
+    students?.forEach(s => {
+      if (s.user_id) userIds.add(s.user_id);
+    });
+
+    // 2. Teachers assigned to this class (form_class_id or form_class_ids)
+    const { data: teachers } = await supabase
+      .from('teachers')
+      .select('user_id, form_class_id, form_class_ids');
+    
+    teachers?.forEach(t => {
+      if (t.user_id) {
+        if (t.form_class_id === classId) {
+          userIds.add(t.user_id);
+        } else if (t.form_class_ids && t.form_class_ids.includes(classId)) {
+          userIds.add(t.user_id);
+        }
+      }
+    });
+
+    // 3. Parents of students in this class
+    const studentIds = students?.map(s => s.user_id).filter(Boolean) || [];
+    if (studentIds.length > 0) {
+      const { data: studentRecords } = await supabase
+        .from('students')
+        .select('id, user_id')
+        .in('user_id', studentIds);
+      
+      const studentRecordIds = studentRecords?.map(s => s.id) || [];
+      
+      const { data: parents } = await supabase
+        .from('parents')
+        .select('user_id, students_ids');
+      
+      parents?.forEach(p => {
+        if (p.user_id && p.students_ids) {
+          const hasOverlap = p.students_ids.some((sid: string) => studentRecordIds.includes(sid));
+          if (hasOverlap) {
+            userIds.add(p.user_id);
+          }
+        }
+      });
+    }
+
+    setClassFilterUserIds(userIds);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -241,11 +329,19 @@ export default function UserManagementPage() {
     }
   };
 
-  const filteredUsers = users.filter(user =>
-    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.role.includes(searchTerm.toLowerCase())
-  );
+  const filteredUsers = users.filter(user => {
+    // ✅ Apply class filter first
+    if (filterClass && !classFilterUserIds.has(user.id)) {
+      return false;
+    }
+    
+    // Then apply search filter
+    return (
+      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.role.includes(searchTerm.toLowerCase())
+    );
+  });
 
   if (loading) return <div className="p-8 text-gray-900 font-bold">Loading users...</div>;
 
@@ -262,11 +358,24 @@ export default function UserManagementPage() {
           <span>Create New User</span>
         </button>
       </div>
-      <div className="mb-6">
-        <div className="relative md:max-w-md">
+      <div className="mb-6 flex flex-col md:flex-row gap-4">
+        <div className="relative md:max-w-md flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
           <input type="text" placeholder="Search by name, email, or role..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 text-gray-900 font-medium" />
         </div>
+        {/* ✅ CLASS FILTER DROPDOWN */}
+        <select
+          value={filterClass}
+          onChange={(e) => setFilterClass(e.target.value)}
+          className="px-4 py-3 border-2 border-gray-300 rounded-lg text-gray-900 font-medium bg-white focus:ring-2 focus:ring-green-500 md:w-64"
+        >
+          <option value="">All Classes</option>
+          {classes.map(c => (
+            <option key={c.id} value={c.id}>
+              {c.class_name} {c.arm ? `(${c.arm})` : ''} {c.department ? `- ${c.department}` : ''}
+            </option>
+          ))}
+        </select>
       </div>
       <div className="table-container bg-white rounded-xl shadow-md border border-gray-200 overflow-x-auto">
         <table className="responsive-table w-full min-w-[900px]">
@@ -282,7 +391,9 @@ export default function UserManagementPage() {
           </thead>
           <tbody>
             {filteredUsers.length === 0 ? (
-              <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-600 font-medium">No users found. Create your first user!</td></tr>
+              <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-600 font-medium">
+                {filterClass ? 'No users found for this class. Try a different class or clear the filter.' : 'No users found. Create your first user!'}
+              </td></tr>
             ) : (
               filteredUsers.map((user) => (
                 <tr key={user.id} className="border-b border-gray-200 hover:bg-gray-50">
