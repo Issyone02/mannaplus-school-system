@@ -45,6 +45,7 @@ export default function TeachersPage() {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterClass, setFilterClass] = useState(''); // ✅ Class filter
   const [showModal, setShowModal] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
   const [sigTeacher, setSigTeacher] = useState<any>(null)
@@ -356,13 +357,21 @@ export default function TeachersPage() {
     }));
   };
 
-  // ✅ FILTER TEACHERS FOR SEARCH
-  const filteredTeachers = teachers.filter(teacher =>
-    teacher.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    teacher.staff_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    teacher.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (teacher.subjects || []).some(s => s.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  // ✅ FILTER TEACHERS BY SEARCH + CLASS
+  const filteredTeachers = teachers.filter(teacher => {
+    const matchesSearch =
+      teacher.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      teacher.staff_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      teacher.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (teacher.subjects || []).some(s => s.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    const assignedIds = teacher.form_class_ids || [];
+    const matchesClass =
+      !filterClass ||
+      (filterClass === 'unassigned' ? assignedIds.length === 0 : assignedIds.includes(filterClass));
+
+    return matchesSearch && matchesClass;
+  });
 
   // ✅ INITIAL DATA FETCH
   useEffect(() => {
@@ -382,7 +391,10 @@ export default function TeachersPage() {
       <div className="flex flex-col md:flex-row justify-between items-center gap-3 md:gap-0 mb-6 text-center md:text-left">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Teacher Management</h1>
-          <p className="text-gray-600 mt-1 font-medium">{teachers.length} teachers • {teachers.filter(t => t.active).length} active</p>
+          <p className="text-gray-600 mt-1 font-medium">
+            {teachers.length} teachers • {teachers.filter(t => t.active).length} active
+            {filteredTeachers.length !== teachers.length ? ` • Showing ${filteredTeachers.length}` : ''}
+          </p>
         </div>
         <button
           onClick={() => { 
@@ -412,15 +424,31 @@ export default function TeachersPage() {
       </div>
 
       <div className="bg-white rounded-xl shadow-md p-4 border border-gray-200 mb-6">
-        <div className="relative md:max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-          <input
-            type="text"
-            placeholder="Search by name, staff ID, email, or subject..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium"
-          />
+        <div className="flex flex-col md:flex-row gap-3">
+          <div className="relative md:max-w-md flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+            <input
+              type="text"
+              placeholder="Search by name, staff ID, email, or subject..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900 font-medium"
+            />
+          </div>
+          {/* ✅ CLASS FILTER DROPDOWN */}
+          <select
+            value={filterClass}
+            onChange={(e) => setFilterClass(e.target.value)}
+            className="px-4 py-3 border-2 border-gray-300 rounded-lg text-gray-900 font-medium bg-white focus:ring-2 focus:ring-blue-500 md:w-64"
+          >
+            <option value="">All Classes</option>
+            <option value="unassigned">⚠️ Unassigned Teachers</option>
+            {classes.map(c => (
+              <option key={c.id} value={c.id}>
+                {c.class_name} {c.arm ? `(${c.arm})` : ''} {c.department ? `- ${c.department}` : ''}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -429,7 +457,7 @@ export default function TeachersPage() {
           <div className="col-span-full bg-white rounded-xl shadow-md p-12 text-center border border-gray-200">
             <User size={64} className="mx-auto text-gray-300 mb-4" />
             <p className="text-gray-600 font-medium text-lg">No teachers found</p>
-            <p className="text-gray-500 mt-2">Add your first teacher!</p>
+            <p className="text-gray-500 mt-2">{filterClass ? 'No teachers assigned to this class. Try another class or clear the filter.' : 'Add your first teacher!'}</p>
           </div>
         ) : (
           filteredTeachers.map((teacher) => (
