@@ -19,12 +19,25 @@ export default function IdleTimeout() {
   const lastActivityRef = useRef<number>(Date.now())
   const warningRef = useRef(false)
   const userRef = useRef(user)
+  const hasLoggedOutRef = useRef(false) // ✅ Prevents modal re-display after logout
 
   warningRef.current = warning
   userRef.current = user
 
-  const doLogout = useCallback(() => {
-    signOut({ redirectUrl: '/sign-in' })
+  const doLogout = useCallback(async () => {
+    hasLoggedOutRef.current = true // ✅ Prevent modal from re-rendering
+    
+    // Clear all storage to kill any cached state
+    try {
+      localStorage.clear()
+      sessionStorage.clear()
+    } catch (e) {
+      console.warn('Storage clear failed:', e)
+    }
+    
+    // Sign out and force hard redirect (bypasses Next.js router cache)
+    await signOut()
+    window.location.href = '/sign-in?reason=idle_timeout'
   }, [signOut])
 
   // ✅ Timestamp-based evaluation — immune to timer throttling
@@ -49,6 +62,7 @@ export default function IdleTimeout() {
     if (isLoaded) {
       lastActivityRef.current = Date.now()
       setWarning(false)
+      hasLoggedOutRef.current = false // ✅ Allow idle tracking again after fresh login
     }
   }, [isLoaded, user?.id])
 
@@ -117,7 +131,7 @@ export default function IdleTimeout() {
   const mins = Math.floor(remainingMs / 60000)
   const secs = Math.floor((remainingMs % 60000) / 1000)
 
-  if (!isLoaded || !user || !warning) return null
+  if (!isLoaded || !user || !warning || hasLoggedOutRef.current) return null
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[9999]">
