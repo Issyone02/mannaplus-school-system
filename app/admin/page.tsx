@@ -5,6 +5,20 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { TrendingUp, TrendingDown, DollarSign, Users, BookOpen, Award, Plus, FileText } from 'lucide-react'
 
+// ✅ DYNAMIC TERM/SESSION (same rule as Results & Fees pages)
+const getCurrentTerm = () => {
+  const month = new Date().getMonth() + 1
+  if (month >= 9) return 'First Term'
+  if (month <= 3) return 'Second Term'
+  return 'Third Term'
+}
+const getCurrentSession = () => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth() + 1
+  return month >= 9 ? `${year}/${year + 1}` : `${year - 1}/${year}`
+}
+
 export default function AdminDashboardPage() {
   const router = useRouter()
   const [stats, setStats] = useState({
@@ -13,7 +27,9 @@ export default function AdminDashboardPage() {
     totalParents: 0,
     totalFeeStructures: 0,
     totalCollected: 0,
-    totalPending: 0,
+    termExpected: 0,
+    carriedForward: 0,
+    totalOutstanding: 0,
     totalRevenue: 0,
     pendingRequests: 0
   })
@@ -28,21 +44,29 @@ export default function AdminDashboardPage() {
       const { count: studentsCount } = await supabase.from('students').select('*', { count: 'exact', head: true })
       const { count: teachersCount } = await supabase.from('teachers').select('*', { count: 'exact', head: true })
       const { count: parentsCount } = await supabase.from('parents').select('*', { count: 'exact', head: true })
-      const { data: feeStructures } = await supabase.from('fee_structures').select('amount').eq('active', true)
-      const { data: payments } = await supabase.from('fee_payments').select('amount_paid')
+      const { count: feeStructuresCount } = await supabase.from('fee_structures').select('*', { count: 'exact', head: true }).eq('active', true)
       const { count: pendingRequestsCount } = await supabase.from('payment_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending')
 
-      const totalStructures = feeStructures?.reduce((sum, f) => sum + f.amount, 0) || 0
-      const totalCollected = payments?.reduce((sum, p) => sum + p.amount_paid, 0) || 0
-      const totalPending = totalStructures - totalCollected
+      // ✅ TERM-SCOPED financial summary (same RPC as Fee Management page)
+      const { data: fin } = await supabase.rpc('financial_summary', {
+        p_term: getCurrentTerm(),
+        p_session: getCurrentSession(),
+      })
+      const row = Array.isArray(fin) ? fin[0] : fin
+      const totalCollected = Number(row?.all_time_paid || 0)
+      const termExpected = Number(row?.term_expected || 0)
+      const carriedForward = Number(row?.carried_forward || 0)
+      const totalOutstanding = Number(row?.total_outstanding || 0)
 
       setStats({
         totalStudents: studentsCount || 0,
         totalTeachers: teachersCount || 0,
         totalParents: parentsCount || 0,
-        totalFeeStructures: feeStructures?.length || 0,
+        totalFeeStructures: feeStructuresCount || 0,
         totalCollected,
-        totalPending: Math.max(0, totalPending),
+        termExpected,
+        carriedForward,
+        totalOutstanding,
         totalRevenue: totalCollected,
         pendingRequests: pendingRequestsCount || 0
       })
@@ -69,9 +93,9 @@ export default function AdminDashboardPage() {
   ]
 
   const financeCards = [
-    { title: 'Total Collected', value: `₦${stats.totalCollected.toLocaleString()}`, icon: TrendingUp, color: 'text-green-600', bgColor: 'bg-green-50', borderColor: 'border-green-200' },
-    { title: 'Total Expected', value: `₦${(stats.totalCollected + stats.totalPending).toLocaleString()}`, icon: DollarSign, color: 'text-blue-600', bgColor: 'bg-blue-50', borderColor: 'border-blue-200' },
-    { title: 'Pending Fees', value: `₦${stats.totalPending.toLocaleString()}`, icon: TrendingDown, color: 'text-orange-600', bgColor: 'bg-orange-50', borderColor: 'border-orange-200' },
+    { title: 'Total Collected', value: `₦${stats.totalCollected.toLocaleString()}`, icon: TrendingUp, color: 'text-green-600', bgColor: 'bg-green-50', borderColor: 'border-green-200', subtitle: 'All time' },
+    { title: 'This Term Fees', value: `₦${stats.termExpected.toLocaleString()}`, icon: DollarSign, color: 'text-blue-600', bgColor: 'bg-blue-50', borderColor: 'border-blue-200', subtitle: `${getCurrentTerm()} ${getCurrentSession()}` },
+    { title: 'Total Outstanding', value: `₦${Math.max(0, stats.totalOutstanding).toLocaleString()}`, icon: TrendingDown, color: 'text-red-600', bgColor: 'bg-red-50', borderColor: 'border-red-200', subtitle: `Incl. ₦${stats.carriedForward.toLocaleString()} carried forward` },
     { title: 'Payment Requests', value: stats.pendingRequests, icon: Award, color: 'text-purple-600', bgColor: 'bg-purple-50', borderColor: 'border-purple-200', subtitle: 'Awaiting approval' }
   ]
 

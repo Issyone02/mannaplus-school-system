@@ -74,6 +74,8 @@ export default function FeeManagementPage() {
   const [totalCollected, setTotalCollected] = useState(0)
   const [termExpected, setTermExpected] = useState(0)         // ✅ This term's billable total
   const [termPaid, setTermPaid] = useState(0)                 // ✅ Collected within this term
+  const [carriedForward, setCarriedForward] = useState(0)     // ✅ Debt from past terms
+  const [totalOutstanding, setTotalOutstanding] = useState(0) // ✅ All debt (past + current)
   const [expectedStudentCount, setExpectedStudentCount] = useState(0)
   const paymentsPageSize = 50
   const [feeStructures, setFeeStructures] = useState<FeeStructure[]>([])
@@ -123,9 +125,10 @@ export default function FeeManagementPage() {
     reference_number: '', 
     receipt_number: '', 
     paid_by: '', 
-    notes: '' 
+    notes: '',
+    term: getCurrentTerm(),     // ✅ Which term this payment is for
+    session: getCurrentSession() // ✅ Which session this payment is for
   })
-
   useEffect(() => { fetchData() }, [])
 
   const fetchData = async () => {
@@ -138,7 +141,7 @@ export default function FeeManagementPage() {
     const { data: collected } = await supabase.rpc('total_collected')
     setTotalCollected(Number(collected || 0))
 
-    // ✅ TERM-SCOPED financial summary (expected / paid / outstanding for current term only)
+    // ✅ TERM-SCOPED financial summary with debt rollover
     const { data: fin } = await supabase.rpc('financial_summary', {
       p_term: getCurrentTerm(),
       p_session: getCurrentSession(),
@@ -146,6 +149,8 @@ export default function FeeManagementPage() {
     const row = Array.isArray(fin) ? fin[0] : fin
     setTermExpected(Number(row?.term_expected || 0))
     setTermPaid(Number(row?.term_paid || 0))
+    setCarriedForward(Number(row?.carried_forward || 0))
+    setTotalOutstanding(Number(row?.total_outstanding || 0))
     setExpectedStudentCount(Number(row?.student_count || 0))
 
     setLoading(false)
@@ -299,16 +304,30 @@ export default function FeeManagementPage() {
         reference_number: paymentForm.reference_number || null, 
         receipt_number: receiptNumber, 
         paid_by: paymentForm.paid_by, 
-        notes: paymentForm.notes || null 
+        notes: paymentForm.notes || null,
+        term: paymentForm.term,       // ✅ Save which term this payment is for
+        session: paymentForm.session  // ✅ Save which session
       }])
       if (error) throw error
-      toast.success(`Payment recorded! Receipt: ${receiptNumber}`)
+      toast.success(`Payment recorded for ${paymentForm.term} ${paymentForm.session}! Receipt: ${receiptNumber}`)
       setShowModal(false)
-      setPaymentForm({ student_id: '', amount_paid: '', payment_date: new Date().toISOString().split('T')[0], payment_method: 'Transfer', reference_number: '', receipt_number: '', paid_by: '', notes: '' })
+      setPaymentForm({ 
+        student_id: '', 
+        amount_paid: '', 
+        payment_date: new Date().toISOString().split('T')[0], 
+        payment_method: 'Transfer', 
+        reference_number: '', 
+        receipt_number: '', 
+        paid_by: '', 
+        notes: '',
+        term: getCurrentTerm(),
+        session: getCurrentSession()
+      })
       fetchPayments()
+      fetchData() // ✅ Refresh summary
     } catch (error: any) { 
       toast.error('Failed: ' + error.message) 
-    }
+    } 
   }
 
   const handleDeleteStructure = async (id: string) => { 
@@ -697,7 +716,7 @@ export default function FeeManagementPage() {
         </div>
       </div>
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 mb-6">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-6 mb-6">
         <div className="center-mobile bg-white rounded-xl shadow-md p-4 md:p-6 border border-gray-200">
           <div className="flex items-center justify-center mb-3 md:mb-4">
             <div className="p-2 md:p-3 rounded-lg bg-green-500"><TrendingUp className="text-white" size={24} /></div>
@@ -710,22 +729,31 @@ export default function FeeManagementPage() {
             <div className="p-2 md:p-3 rounded-lg bg-blue-500"><FileText className="text-white" size={24} /></div>
           </div>
           <h3 className="text-lg md:text-2xl font-bold text-blue-600 break-words">₦{termExpected.toLocaleString()}</h3>
-          <p className="text-gray-600 text-xs md:text-sm font-medium text-center">Expected — {getCurrentTerm()} {getCurrentSession()}</p>
-          <p className="text-[10px] text-gray-500 font-medium text-center mt-1">{expectedStudentCount} active students billed</p>
+          <p className="text-gray-600 text-xs md:text-sm font-medium text-center">This Term Fees</p>
+          <p className="text-[10px] text-gray-500 font-medium text-center mt-1">{getCurrentTerm()} {getCurrentSession()}</p>
+        </div>
+        <div className="center-mobile bg-white rounded-xl shadow-md p-4 md:p-6 border border-gray-200">
+          <div className="flex items-center justify-center mb-3 md:mb-4">
+            <div className="p-2 md:p-3 rounded-lg bg-yellow-500"><TrendingDown className="text-white" size={24} /></div>
+          </div>
+          <h3 className="text-lg md:text-2xl font-bold text-yellow-600 break-words">₦{carriedForward.toLocaleString()}</h3>
+          <p className="text-gray-600 text-xs md:text-sm font-medium text-center">Carried Forward</p>
+          <p className="text-[10px] text-gray-500 font-medium text-center mt-1">Debt from past terms</p>
         </div>
         <div className="center-mobile bg-white rounded-xl shadow-md p-4 md:p-6 border border-gray-200">
           <div className="flex items-center justify-center mb-3 md:mb-4">
             <div className="p-2 md:p-3 rounded-lg bg-purple-500"><TrendingUp className="text-white" size={24} /></div>
           </div>
           <h3 className="text-lg md:text-2xl font-bold text-purple-600 break-words">₦{termPaid.toLocaleString()}</h3>
-          <p className="text-gray-600 text-xs md:text-sm font-medium text-center">Collected — This Term</p>
+          <p className="text-gray-600 text-xs md:text-sm font-medium text-center">Paid This Term</p>
         </div>
         <div className="center-mobile bg-white rounded-xl shadow-md p-4 md:p-6 border border-gray-200">
           <div className="flex items-center justify-center mb-3 md:mb-4">
-            <div className="p-2 md:p-3 rounded-lg bg-orange-500"><TrendingDown className="text-white" size={24} /></div>
+            <div className="p-2 md:p-3 rounded-lg bg-red-500"><TrendingDown className="text-white" size={24} /></div>
           </div>
-          <h3 className="text-lg md:text-2xl font-bold text-orange-600 break-words">₦{Math.max(0, termExpected - termPaid).toLocaleString()}</h3>
-          <p className="text-gray-600 text-xs md:text-sm font-medium text-center">Outstanding Debt — This Term</p>
+          <h3 className="text-lg md:text-2xl font-bold text-red-600 break-words">₦{Math.max(0, totalOutstanding).toLocaleString()}</h3>
+          <p className="text-gray-600 text-xs md:text-sm font-medium text-center">Total Outstanding</p>
+          <p className="text-[10px] text-gray-500 font-medium text-center mt-1">All debt (past + current)</p>
         </div>
       </div>
 
@@ -1081,6 +1109,24 @@ export default function FeeManagementPage() {
                 {students.map(s => <option key={s.id} value={s.id}>{s.full_name} ({s.admission_number})</option>)}
               </select>
               <input type="number" placeholder="Amount" value={paymentForm.amount_paid} onChange={(e) => setPaymentForm({...paymentForm, amount_paid: e.target.value})} required className="w-full p-2 border rounded text-gray-900"/>
+              
+              {/* ✅ TERM/SESSION SELECTORS */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Payment For (Term)</label>
+                  <select value={paymentForm.term} onChange={(e) => setPaymentForm({...paymentForm, term: e.target.value})} className="w-full p-2 border rounded text-gray-900">
+                    {termOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Session</label>
+                  <select value={paymentForm.session} onChange={(e) => setPaymentForm({...paymentForm, session: e.target.value})} className="w-full p-2 border rounded text-gray-900">
+                    {sessionOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              </div>
+              <p className="text-xs text-gray-600">💡 Select which term this payment covers (e.g., paying for First Term in January)</p>
+              
               <select value={paymentForm.payment_method} onChange={(e) => setPaymentForm({...paymentForm, payment_method: e.target.value})} className="w-full p-2 border rounded text-gray-900">
                 {paymentMethodOptions.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
