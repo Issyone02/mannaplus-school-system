@@ -315,7 +315,7 @@ export default function ResultsPage() {
     }
   }
 
-  // ✅ Save offerings for the selected class
+    // ✅ Save offerings for the selected class (offerings = single source of truth)
   const saveOfferings = async () => {
     if (!offeringClassId) { toast.error('Select a class first'); return }
     const current = classSubjects[offeringClassId] || []
@@ -330,15 +330,15 @@ export default function ResultsPage() {
         const { error } = await supabase.from('class_subjects').delete().eq('class_id', offeringClassId).in('subject_id', toRemove)
         if (error) throw error
       }
-      toast.success('Class offerings saved!')
+      toast.success(`Offerings saved (${offeringDraft.length} subjects). Now click "Sync Subjects to Students" to apply to results.`)
       await fetchClassSubjects()
     } catch (error: any) { toast.error('Failed: ' + error.message) }
   }
 
   const offeredByCount = (subjectId: string) => Object.values(classSubjects).filter(ids => ids.includes(subjectId)).length
 
-  // ✅ Refetch results only when the session changes (keeps payload small)
-  useEffect(() => { fetchResults() }, [selectedSession])
+  // ✅ Refetch when session OR term changes (term is now filtered server-side)
+  useEffect(() => { fetchResults() }, [selectedSession, selectedTerm])
 
   const fetchSubjects = async () => {
     const { data, error } = await supabase.from('subjects').select('*').order('name')
@@ -348,13 +348,26 @@ export default function ResultsPage() {
 
   const fetchResults = async () => {
     try {
-      // ✅ OPTIMIZED: one filtered query, joins done by the database (no full-table downloads)
-      const { data, error } = await supabase
-        .from('results')
-        .select(`*, student:students(full_name, admission_number), subject:subjects(name, department)`)
-        .eq('session', selectedSession)
-        .order('created_at', { ascending: false })
-      if (error) throw error
+      // ✅ FIXED: Supabase caps every request at 1,000 rows. A full session now has
+      // 2,300+ result rows, so we page through in 1,000-row chunks (filtered by term
+      // server-side) — otherwise classes get silently truncated mid-block.
+      let allRows: any[] = []
+      const pageSize = 1000
+      let from = 0
+      while (true) {
+        const { data, error } = await supabase
+          .from('results')
+          .select(`*, student:students(full_name, admission_number), subject:subjects(name, department)`)
+          .eq('session', selectedSession)
+          .eq('term', selectedTerm)
+          .order('created_at', { ascending: false })
+          .range(from, from + pageSize - 1)
+        if (error) throw error
+        allRows = allRows.concat(data || [])
+        if (!data || data.length < pageSize) break
+        from += pageSize
+      }
+      const data = allRows
 
       // ✅ Tiny lookup for class departments (no foreign key needed)
       const { data: classesData } = await supabase.from('classes').select('id, department')
@@ -399,33 +412,48 @@ export default function ResultsPage() {
     return { grade: g?.grade || 'F9', remark: g?.remark || 'Fail' }
   }
 
-  // ✅ Sync ALL offered subjects of the selected class to ALL students (one-click fix for any missing rows)
+    // ✅ Sync = RECONCILE results to exactly match the saved offerings (add missing + remove extra)
   const syncAllSubjectsToStudents = async () => {
     if (!selectedClass) {
       toast.error('Please select a class first')
       return
     }
-    toast.loading('Syncing all subjects to students...', { id: 'syncall' })
+    toast.loading('Reconciling subjects with saved offerings...', { id: 'syncall' })
     try {
-      const offeredIds = classSubjects[selectedClass] || []
+      // 1) Fresh offerings from DB (the source of truth)
+      const { data: offeringRows, error: offeringError } = await supabase
+        .from('class_subjects')
+        .select('subject_id')
+        .eq('class_id', selectedClass)
+      if (offeringError) throw offeringError
+
+      const offeredIds = (offeringRows || []).map((r: any) => r.subject_id)
       const classSubjectsList = subjects.filter(s => offeredIds.includes(s.id))
       const studentsInClass = students.filter(s => s.class_id === selectedClass)
+      const className = classes.find(c => c.id === selectedClass)?.class_name || 'this class'
 
-      if (classSubjectsList.length === 0 || studentsInClass.length === 0) {
+      if (classSubjectsList.length === 0) {
         toast.dismiss('syncall')
-        toast.error('No subjects or students found for this class')
+        toast.error(`${className} has NO saved offerings. Save offerings in the Subjects tab first.`)
+        return
+      }
+      if (studentsInClass.length === 0) {
+        toast.dismiss('syncall')
+        toast.error(`${className} has no active students.`)
         return
       }
 
+      // 2) Current result rows for this class/term/session
       const { data: existing } = await supabase
         .from('results')
-        .select('student_id, subject_id')
+        .select('id, student_id, subject_id')
         .eq('class_id', selectedClass)
         .eq('term', selectedTerm)
         .eq('session', selectedSession)
 
       const existingKeys = new Set((existing || []).map((r: any) => `${r.student_id}|${r.subject_id}`))
 
+      // 3) ADD missing rows for offered subjects (chunked, duplicate-safe)
       const payloads: any[] = []
       studentsInClass.forEach(st => {
         classSubjectsList.forEach(sub => {
@@ -447,21 +475,49 @@ export default function ResultsPage() {
         })
       })
 
-      if (payloads.length === 0) {
-        toast.success('All students already have all subjects!', { id: 'syncall' })
-        return
+      let created = 0
+      for (let i = 0; i < payloads.length; i += 100) {
+        const chunk = payloads.slice(i, i + 100)
+        const { error } = await supabase
+          .from('results')
+          .upsert(chunk, { onConflict: 'student_id,subject_id,term,session', ignoreDuplicates: true })
+        if (error) throw error
+        created += chunk.length
       }
 
-      const { error } = await supabase.from('results').insert(payloads)
-      if (error) throw error
+      // 4) REMOVE rows for subjects NOT in the saved offerings (current term/session only)
+      const extraIds = Array.from(new Set((existing || []).map((r: any) => r.subject_id).filter((id: string) => !offeredIds.includes(id))))
+      let removed = 0
+      if (extraIds.length > 0) {
+        const extraNames = subjects.filter(s => extraIds.includes(s.id)).map(s => s.name).join(', ')
+        const ok = confirm(
+          `These subjects are NOT in ${className}'s saved offerings:\n\n${extraNames}\n\nDelete their ${selectedTerm} ${selectedSession} result rows so the class matches the offerings exactly?`
+        )
+        if (ok) {
+          const { error: delError, count } = await supabase
+            .from('results')
+            .delete({ count: 'exact' })
+            .eq('class_id', selectedClass)
+            .in('subject_id', extraIds)
+            .eq('term', selectedTerm)
+            .eq('session', selectedSession)
+          if (delError) throw delError
+          removed = count || 0
+        }
+      }
 
-      toast.success(`Created ${payloads.length} missing result rows. Report cards updated!`, { id: 'syncall' })
-      await fetchResults()
+      toast.success(
+        `✅ ${className} reconciled: ${classSubjectsList.length} offered subjects × ${studentsInClass.length} students. Added ${created} row(s), removed ${removed} row(s).`,
+        { id: 'syncall', duration: 6000 }
+      )
+      await Promise.all([fetchResults(), fetchClassSubjects()])
     } catch (error: any) {
       console.error('Sync-all error:', error)
       toast.error('Failed to sync: ' + error.message, { id: 'syncall' })
     }
   }
+
+
 
   const handleAddSubject = async (e: React.FormEvent) => {
     e.preventDefault()

@@ -204,10 +204,20 @@ export default function TeacherResultsPage() {
 
   const fetchResults = async () => {
     try {
-      const { data, error } = await supabase.from('results').select('*')
-        .in('class_id', teacherClassIds).eq('term', selectedTerm).eq('session', selectedSession)
-      if (error) throw error
-
+      // ✅ Paginate: Supabase caps each request at 1,000 rows
+      let allRows: any[] = []
+      const pageSize = 1000
+      let from = 0
+      while (true) {
+        const { data, error } = await supabase.from('results').select('*')
+          .in('class_id', teacherClassIds).eq('term', selectedTerm).eq('session', selectedSession)
+          .range(from, from + pageSize - 1)
+        if (error) throw error
+        allRows = allRows.concat(data || [])
+        if (!data || data.length < pageSize) break
+        from += pageSize
+      }
+      const data = allRows
       const studentsData = students
       const { data: subjectsData } = await supabase.from('subjects').select('id, name')
 
