@@ -266,25 +266,61 @@ export default function PromotionPage() {
 
 
 
-  // ✅ NEW STEP 2: Verify every active student has results this session
+  // ✅ NEW STEP 2: Verify every active student has results AND report cards are locked
   const checkResultsCompleteness = async () => {
     setWizardChecking(true)
     try {
+      // Check 1: All students have results
       const { data: activeStudents } = await supabase
         .from('students')
-        .select('id, full_name, admission_number')
+        .select('id, full_name, admission_number, class_id')
         .eq('active', true)
 
       const { data: resultsData } = await supabase
         .from('results')
         .select('student_id')
         .eq('session', fromSession)
+        .eq('term', 'Third Term')
 
       const withResults = new Set((resultsData || []).map((r: any) => r.student_id))
       const missing = (activeStudents || []).filter(s => !withResults.has(s.id))
-      setWizardMissingStudents(missing.map((s: any) => `${s.full_name} (${s.admission_number})`))
-      setWizardResultsDone(missing.length === 0)
-      if (missing.length === 0) toast.success('All students have results for this session!')
+      
+      // Check 2: Report cards are locked for Third Term
+      const { data: reportCardAccess } = await supabase
+        .from('report_card_access')
+        .select('class_id, is_unlocked')
+        .eq('term', 'Third Term')
+        .eq('session', fromSession)
+
+      const lockedClassIds = new Set(
+        (reportCardAccess || [])
+          .filter((r: any) => !r.is_unlocked)
+          .map((r: any) => r.class_id)
+      )
+
+      const studentsInUnlockedClasses = (activeStudents || []).filter(
+        (s: any) => !lockedClassIds.has(s.class_id)
+      )
+
+      setWizardMissingStudents([
+        ...missing.map((s: any) => `❌ No results: ${s.full_name} (${s.admission_number})`),
+        ...studentsInUnlockedClasses.map((s: any) => `🔓 Report card unlocked: ${s.full_name} (${s.admission_number})`)
+      ])
+
+      const allResultsComplete = missing.length === 0
+      const allCardsLocked = studentsInUnlockedClasses.length === 0
+
+      setWizardResultsDone(allResultsComplete && allCardsLocked)
+
+      if (allResultsComplete && allCardsLocked) {
+        toast.success('✅ All Third Term results entered and report cards locked!')
+      } else if (!allResultsComplete && !allCardsLocked) {
+        toast.error('❌ Missing results AND unlocked report cards. Fix both before proceeding.')
+      } else if (!allResultsComplete) {
+        toast.error('❌ Some students missing Third Term results.')
+      } else {
+        toast.error('🔓 Some report cards are still unlocked. Lock them before promotion.')
+      }
     } catch (error: any) {
       toast.error('Check failed: ' + error.message)
     } finally {
@@ -718,6 +754,57 @@ export default function PromotionPage() {
         </div>
       </div>
 
+      {/* ✅ END-OF-SESSION CHECKLIST */}
+      {isPromotionPeriod && (
+        <div className="mb-6 bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-300 rounded-lg p-5">
+          <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+            <CheckCircle className="text-blue-600" size={20} />
+            End-of-Session Checklist (Complete in Order)
+          </h3>
+          <div className="space-y-2 text-sm text-gray-700">
+            <div className="flex items-start gap-2">
+              <span className="font-bold text-blue-600">1.</span>
+              <div>
+                <strong>Enter all Third Term results</strong> — Go to <em>Results → Enter Results</em>, select Third Term, and ensure every student has scores for all subjects.
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="font-bold text-blue-600">2.</span>
+              <div>
+                <strong>Lock Third Term report cards</strong> — Go to <em>Results → Report Card Access</em>, select Third Term {activeSession?.session_name}, and lock all classes. This prevents further edits.
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="font-bold text-blue-600">3.</span>
+              <div>
+                <strong>Parents/students can view & print</strong> — Once unlocked, report cards are available for download. After promotion, they remain accessible as historical records.
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="font-bold text-blue-600">4.</span>
+              <div>
+                <strong>Download archive snapshot</strong> — Use the <em>Download Archive Snapshot</em> button below to backup results before promotion.
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="font-bold text-blue-600">5.</span>
+              <div>
+                <strong>Execute promotions</strong> — Promote students to their next class. JSS 3 students require individual department assignment (Science/Arts/Commercial).
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="font-bold text-blue-600">6.</span>
+              <div>
+                <strong>Start new session</strong> — Use the <em>Start New Session</em> wizard to archive the current session and activate the next one.
+              </div>
+            </div>
+          </div>
+          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
+            <strong>⚠️ Important:</strong> Promotion changes student <code>class_id</code>. Historical report cards remain accessible, but new report cards will be generated for the new class/term.
+          </div>
+        </div>
+      )}
+
       {/* Start New Session Button */}
       <div className="mb-6 bg-blue-50 border-2 border-blue-300 rounded-lg p-4">
         <div className="flex items-center justify-between flex-wrap gap-4">
@@ -1058,27 +1145,40 @@ export default function PromotionPage() {
                 </div>
               </div>
 
-              {/* STEP 2 — RESULTS */}
+              {/* STEP 2 — RESULTS & REPORT CARDS */}
               <div className={`rounded-lg border-2 p-4 ${wizardResultsDone ? 'border-green-300 bg-green-50' : wizardBackupDone ? 'border-gray-200 bg-white' : 'border-gray-200 bg-gray-100 opacity-60'}`}>
                 <div className="flex justify-between items-center gap-3 flex-wrap">
                   <div className="flex-1 min-w-[200px]">
-                    <h3 className="font-bold text-gray-900">Step 2 — Confirm all results are entered</h3>
+                    <h3 className="font-bold text-gray-900">Step 2 — Third Term results entered & report cards locked</h3>
                     <p className="text-sm text-gray-600">
                       {wizardChecking ? 'Checking…' : wizardResultsDone
-                        ? '✅ All active students have results for this session.'
+                        ? '✅ All Third Term results entered and report cards locked. Ready for promotion.'
                         : wizardBackupDone
-                          ? `${wizardMissingStudents.length} student(s) still have NO results for ${fromSession}. Enter their results, then verify again.`
+                          ? '❌ Fix the issues below before proceeding.'
                           : 'Complete Step 1 to unlock.'}
                     </p>
                     {!wizardResultsDone && wizardMissingStudents.length > 0 && (
-                      <p className="text-xs text-orange-700 mt-1 max-h-20 overflow-y-auto font-medium">{wizardMissingStudents.join(', ')}</p>
+                      <div className="mt-2 max-h-32 overflow-y-auto">
+                        {wizardMissingStudents.map((msg, idx) => (
+                          <p key={idx} className="text-xs text-orange-700 font-medium">{msg}</p>
+                        ))}
+                      </div>
+                    )}
+                    {!wizardResultsDone && wizardBackupDone && (
+                      <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
+                        <strong>How to fix:</strong>
+                        <ul className="list-disc ml-4 mt-1">
+                          <li>Enter missing Third Term results in <strong>Results → Enter Results</strong></li>
+                          <li>Lock report cards in <strong>Results → Report Card Access</strong> (Third Term {fromSession})</li>
+                        </ul>
+                      </div>
                     )}
                   </div>
                   {wizardResultsDone ? (
                     <span className="flex items-center gap-1 text-green-700 font-bold text-sm"><CheckCircle size={18} /> Done</span>
                   ) : (
                     <button onClick={checkResultsCompleteness} disabled={!wizardBackupDone || wizardChecking} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed">
-                      Verify Results
+                      Verify
                     </button>
                   )}
                 </div>
