@@ -827,6 +827,10 @@ export default function ResultsPage() {
             <p className="text-sm text-orange-700 mb-4">
               Lock or unlock report cards for specific classes. When unlocked, students and parents receive notifications.
             </p>
+            <p className="text-xs text-orange-700 mb-4 bg-orange-100/60 border border-orange-200 rounded p-2">
+              🔒 Rule: the <strong>current term</strong> ({getCurrentTerm()} {getCurrentSession()}) stays locked until you unlock it here with a date window.
+              <strong> Past terms are never affected</strong> — they remain permanently viewable & printable for parents/students.
+            </p>
             
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
               <div>
@@ -851,7 +855,9 @@ export default function ResultsPage() {
                   onChange={(e) => setAccessControlTerm(e.target.value)}
                   className="w-full p-2 border rounded text-gray-900 bg-white"
                 >
-                  {termOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                  {termOptions.map(t => (
+                    <option key={t} value={t}>{t}{t === getCurrentTerm() ? ' (Current)' : ''}</option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -861,7 +867,9 @@ export default function ResultsPage() {
                   onChange={(e) => setAccessControlSession(e.target.value)}
                   className="w-full p-2 border rounded text-gray-900 bg-white"
                 >
-                  {sessionOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                  {sessionOptions.map(s => (
+                    <option key={s} value={s}>{s}{s === getCurrentSession() ? ' (Current)' : ''}</option>
+                  ))}
                 </select>
               </div>
               <div className="flex items-end">

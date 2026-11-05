@@ -16,6 +16,19 @@ import { getSchoolAssets, getClassTeacherSignature, getBrandingForClass } from '
 import { enrichResultsWithPreviousTerms } from '@/lib/reportCardData'
 import PaymentRequestModal from '@/components/PaymentRequestModal'
 
+// ✅ DYNAMIC TERM/SESSION (same rule as the rest of the app)
+const getCurrentTerm = () => {
+  const month = new Date().getMonth() + 1
+  if (month >= 9) return 'First Term'
+  if (month <= 3) return 'Second Term'
+  return 'Third Term'
+}
+const getCurrentSession = () => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth() + 1
+  return month >= 9 ? `${year}/${year + 1}` : `${year - 1}/${year}`
+}
 
 interface Student {
   id: string
@@ -438,16 +451,24 @@ export default function ParentPortalPage() {
   const selectedStudent = children.find(c => c.id === selectedChild)
 
   // ✅ SINGLE SOURCE OF TRUTH: is the report card viewable right now?
+  //  - Lock row exists      → follow it (unlocked AND within date window)
+  //  - No row + CURRENT term → locked by default (results in progress)
+  //  - No row + PAST term    → ALWAYS viewable & printable (historical cards)
   const nowDate = new Date()
-  const reportCardVisible = !!(
-    reportCardAccess &&
-    reportCardAccess.is_unlocked &&
-    reportCardAccess.unlock_start_date &&
-    reportCardAccess.unlock_end_date &&
-    nowDate >= new Date(reportCardAccess.unlock_start_date) &&
-    nowDate <= new Date(reportCardAccess.unlock_end_date)
-  )
-
+  const isCurrentTermSession =
+    selectedTerm === getCurrentTerm() && selectedSession === getCurrentSession()
+  const reportCardVisible = reportCardAccess
+    ? !!(
+        reportCardAccess.is_unlocked &&
+        reportCardAccess.unlock_start_date &&
+        reportCardAccess.unlock_end_date &&
+        nowDate >= new Date(reportCardAccess.unlock_start_date) &&
+        nowDate <= new Date(reportCardAccess.unlock_end_date)
+      )
+    : !isCurrentTermSession
+  const showLockedBanner =
+    (reportCardAccess && !reportCardAccess.is_unlocked) ||
+    (!reportCardAccess && isCurrentTermSession)
   const handleDownloadReceipt = async (receipt: any) => {
     if (!selectedStudent) return
     try {
@@ -602,7 +623,7 @@ export default function ParentPortalPage() {
               )}
 
               {/* ✅ REPORT CARD LOCK MESSAGE */}
-              {reportCardAccess && !reportCardAccess.is_unlocked && (
+              {showLockedBanner && (
                 <div className="mb-6 p-6 bg-red-50 border-2 border-red-300 rounded-xl text-center">
                   <div className="text-5xl mb-3">🔒</div>
                   <h3 className="text-xl font-bold text-red-900 mb-2">Report Card Currently Locked</h3>
