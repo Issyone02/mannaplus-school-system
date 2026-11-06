@@ -13,6 +13,20 @@ import { calculateClassPositions } from '@/lib/classPositions'
 import { getSchoolAssets, getClassTeacherSignature } from '@/lib/schoolAssets'
 import { fetchUserRowByClerkId } from '@/lib/fetchUserRow'
 
+// ✅ DYNAMIC TERM/SESSION (same rule as the rest of the app)
+const getCurrentTerm = () => {
+  const month = new Date().getMonth() + 1
+  if (month >= 9) return 'First Term'
+  if (month <= 3) return 'Second Term'
+  return 'Third Term'
+}
+const getCurrentSession = () => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth() + 1
+  return month >= 9 ? `${year}/${year + 1}` : `${year - 1}/${year}`
+}
+
 export default function StudentDashboardPage() {
   const router = useRouter()
   const { user, isLoaded } = useUser()
@@ -200,6 +214,33 @@ export default function StudentDashboardPage() {
     }
   }
 
+  // ✅ Re-fetch report card data (snapshots) + class position whenever term/session changes
+  useEffect(() => {
+    const fetchReportAndPosition = async () => {
+      if (!student?.id || !selectedTermFilter || !selectedSessionFilter) {
+        setReportData(null)
+        setPositionInfo(null)
+        return
+      }
+      const { data } = await supabase
+        .from('student_reports')
+        .select('*')
+        .eq('student_id', student.id)
+        .eq('term', selectedTermFilter)
+        .eq('session', selectedSessionFilter)
+        .maybeSingle()
+      setReportData(data || null)
+
+      if (student.class_id) {
+        const positions = await calculateClassPositions(student.class_id, selectedTermFilter, selectedSessionFilter)
+        setPositionInfo(positions.get(student.id) || null)
+      } else {
+        setPositionInfo(null)
+      }
+    }
+    fetchReportAndPosition()
+  }, [student?.id, student?.class_id, selectedTermFilter, selectedSessionFilter])
+
   const calculateAverage = () => {
     if (results.length === 0) return 0
     const total = results.reduce((sum, r) => sum + (r.total_score || 0), 0)
@@ -230,6 +271,31 @@ export default function StudentDashboardPage() {
 
   const average = calculateAverage()
   const today = getDayName().toLowerCase()
+
+  // ✅ Results filtered to the selected term/session (report card shows ONE term only)
+  const termResults = allResults.filter(
+    (r: any) => r.term === selectedTermFilter && r.session === selectedSessionFilter
+  )
+
+  // ✅ SINGLE SOURCE OF TRUTH: is the report card viewable right now?
+  //  - Lock row exists       → follow it (unlocked AND within date window)
+  //  - No row + CURRENT term → locked by default (results in progress)
+  //  - No row + PAST term    → ALWAYS viewable & printable (historical cards)
+  const nowDate = new Date()
+  const isCurrentTermSession =
+    selectedTermFilter === getCurrentTerm() && selectedSessionFilter === getCurrentSession()
+  const reportCardVisible = reportCardAccess
+    ? !!(
+        reportCardAccess.is_unlocked &&
+        reportCardAccess.unlock_start_date &&
+        reportCardAccess.unlock_end_date &&
+        nowDate >= new Date(reportCardAccess.unlock_start_date) &&
+        nowDate <= new Date(reportCardAccess.unlock_end_date)
+      )
+    : !isCurrentTermSession
+  const showLockedBanner =
+    (reportCardAccess && !reportCardAccess.is_unlocked) ||
+    (!reportCardAccess && isCurrentTermSession)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -436,7 +502,7 @@ export default function StudentDashboardPage() {
             )}
             
             {/* ✅ REPORT CARD LOCK MESSAGE */}
-            {reportCardAccess && !reportCardAccess.is_unlocked && (
+            {showLockedBanner && (
               <div className="mb-6 p-6 bg-red-50 border-2 border-red-300 rounded-xl text-center">
                 <div className="text-5xl mb-3">🔒</div>
                 <h3 className="text-xl font-bold text-red-900 mb-2">Report Card Currently Locked</h3>
@@ -482,7 +548,7 @@ export default function StudentDashboardPage() {
               </>
             )}
             
-            {positionInfo && (
+            {reportCardVisible && positionInfo && (
               <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
                 <p className="text-sm text-blue-900">
                   <strong>Class Position:</strong> {positionInfo.position_text} of {positionInfo.total_students} students
@@ -490,7 +556,7 @@ export default function StudentDashboardPage() {
               </div>
             )}
 
-            {reportCardAccess && reportCardAccess.is_unlocked && new Date() >= new Date(reportCardAccess.unlock_start_date) && new Date() <= new Date(reportCardAccess.unlock_end_date) && (
+            {reportCardVisible && (
               <UnifiedReportCard
               student={{
                 full_name: student.full_name,
@@ -499,9 +565,9 @@ export default function StudentDashboardPage() {
                 position: positionInfo ? `${positionInfo.position_text} of ${positionInfo.total_students}` : '-',
                 no_in_class: positionInfo?.total_students || '-'
               }}
-              results={allResults}
-              session={allResults[0]?.session || '2025/2026'}
-              term={allResults[0]?.term || 'Third Term'}
+              results={termResults}
+              session={selectedSessionFilter || '2025/2026'}
+              term={selectedTermFilter || 'Third Term'}
               attendance={{
                 opened: reportData?.attendance_opened || 0,
                 present: reportData?.attendance_present || 0,
