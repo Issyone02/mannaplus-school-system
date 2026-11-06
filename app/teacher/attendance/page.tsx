@@ -72,14 +72,14 @@ function TeacherAttendanceContent() {
 
   // ✅ SCHOOL-HOURS GATE: authoritative WAT clock from Supabase (device clock ignored)
   const [watNow, setWatNow] = useState<{ dateStr: string; minutes: number } | null>(null)
-  const SCHOOL_START_MINUTES = 23 * 60 + 59 // 8:00 AM WAT
+  const SCHOOL_START_MINUTES = 8 * 60 // 8:00 AM WAT
 
   // ✅ GATE LOGIC: applies ONLY when the selected date is TODAY in WAT
   const isSuperAdmin = (user?.emailAddresses[0]?.emailAddress || '').toLowerCase() === 'olalereisaiah68@gmail.com'
   const isTodayInWat = !!watNow && watNow.dateStr === selectedDate
   const beforeSchoolHours = !!watNow && isTodayInWat && watNow.minutes < SCHOOL_START_MINUTES
   const timeGateBlocked = beforeSchoolHours && !isSuperAdmin
-  const isLocked || uiDisabled = isLocked || uiDisabled || timeGateBlocked
+  const uiDisabled = isWeekend || timeGateBlocked
 
   // ✅ Fetch server WAT clock; re-check every 30s so the page unlocks itself at 8:00 AM
   const refreshWatClock = async () => {
