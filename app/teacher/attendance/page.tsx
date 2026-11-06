@@ -70,6 +70,36 @@ function TeacherAttendanceContent() {
   const [summaryStudent, setSummaryStudent] = useState<any>(null)
   const [isSummaryOpen, setIsSummaryOpen] = useState(false)
 
+  // ✅ SCHOOL-HOURS GATE: authoritative WAT clock from Supabase (device clock ignored)
+  const [watNow, setWatNow] = useState<{ dateStr: string; minutes: number } | null>(null)
+  const SCHOOL_START_MINUTES = 23 * 60 + 59 // 8:00 AM WAT
+
+  // ✅ GATE LOGIC: applies ONLY when the selected date is TODAY in WAT
+  const isSuperAdmin = (user?.emailAddresses[0]?.emailAddress || '').toLowerCase() === 'olalereisaiah68@gmail.com'
+  const isTodayInWat = !!watNow && watNow.dateStr === selectedDate
+  const beforeSchoolHours = !!watNow && isTodayInWat && watNow.minutes < SCHOOL_START_MINUTES
+  const timeGateBlocked = beforeSchoolHours && !isSuperAdmin
+  const isLocked || uiDisabled = isLocked || uiDisabled || timeGateBlocked
+
+  // ✅ Fetch server WAT clock; re-check every 30s so the page unlocks itself at 8:00 AM
+  const refreshWatClock = async () => {
+    try {
+      const { data } = await supabase.rpc('wat_now')
+      if (!data) return
+      const d = new Date(data) // WAT wall-clock components
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      setWatNow({ dateStr, minutes: d.getHours() * 60 + d.getMinutes() })
+    } catch (e) {
+      console.error('WAT clock fetch failed:', e)
+    }
+  }
+
+  useEffect(() => {
+    refreshWatClock()
+    const id = setInterval(refreshWatClock, 30000)
+    return () => clearInterval(id)
+  }, [])
+
   // ✅ Fetch classes and attendance on mount
   useEffect(() => {
     if (isLoaded && user) {
@@ -213,7 +243,11 @@ function TeacherAttendanceContent() {
   }
 
   const handleStatusChange = (studentId: string, status: 'present' | 'absent' | 'late' | 'holiday') => {
-    if (isLocked || isWeekend) {
+    if (timeGateBlocked) {
+      toast.error('Attendance marking opens at 8:00 AM WAT (server time).')
+      return
+    }
+    if (isLocked || uiDisabled) {
       toast.error(isWeekend ? 'Cannot modify attendance on weekends.' : 'Attendance is locked and cannot be modified')
       return
     }
@@ -248,6 +282,10 @@ function TeacherAttendanceContent() {
   }
 
   const handleNoteChange = (studentId: string, note: string) => {
+    if (timeGateBlocked) {
+      toast.error('Attendance marking opens at 8:00 AM WAT (server time).')
+      return
+    }
     if (isLocked) {
       toast.error('Attendance is locked and cannot be modified')
       return
@@ -267,6 +305,10 @@ function TeacherAttendanceContent() {
 
   // ✅ BULK MARK: Mark all students as present or holiday
   const handleBulkMark = (status: 'present' | 'holiday') => {
+    if (timeGateBlocked) {
+      toast.error('Attendance marking opens at 8:00 AM WAT (server time).')
+      return
+    }
     if (isLocked) {
       toast.error('Attendance is locked and cannot be modified')
       return
@@ -306,6 +348,19 @@ function TeacherAttendanceContent() {
     if (selectedDate > todayStr) {
       toast.error('Cannot mark attendance for future dates.')
       return
+    }
+
+    // ✅ SERVER-SIDE SCHOOL-HOURS GATE (re-verified at save time; cannot be bypassed)
+    const { data: watData } = await supabase.rpc('wat_now')
+    if (watData) {
+      const d = new Date(watData)
+      const watDateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      const watMinutes = d.getHours() * 60 + d.getMinutes()
+      const email = (user?.emailAddresses[0]?.emailAddress || '').toLowerCase()
+      if (watDateStr === selectedDate && watMinutes < 8 * 60 && email !== 'olalereisaiah68@gmail.com') {
+        toast.error('Cannot save: attendance marking opens at 8:00 AM WAT.')
+        return
+      }
     }
 
     if (isLocked) {
@@ -419,9 +474,9 @@ function TeacherAttendanceContent() {
           </div>
           <button 
             onClick={saveAllAttendance}
-            disabled={saving || isLocked || isWeekend}
+            disabled={saving || isLocked || uiDisabled}
             className={`flex items-center gap-2 px-4 py-2 rounded font-bold ${
-              (isLocked || isWeekend)
+              (isLocked || uiDisabled)
                 ? 'bg-gray-400 cursor-not-allowed' 
                 : 'bg-green-600 hover:bg-green-700'
             } text-white`}
@@ -429,6 +484,26 @@ function TeacherAttendanceContent() {
             <Save size={16}/> {isWeekend ? 'Weekend - Disabled' : saving ? 'Saving...' : 'Save'}
           </button>
         </div>
+
+        {/* ✅ SCHOOL-HOURS GATE BANNER */}
+        {timeGateBlocked && (
+          <div className="bg-indigo-50 border-2 border-indigo-300 rounded-lg p-4 mb-6 flex items-start gap-3">
+            <Clock size={24} className="text-indigo-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-bold text-indigo-900 text-lg">School Hours Not Started</h3>
+              <p className="text-sm text-indigo-800 mt-1">
+                Server time (WAT): <strong>{watNow ? `${String(Math.floor(watNow.minutes / 60)).padStart(2, '0')}:${String(watNow.minutes % 60).padStart(2, '0')}` : '--:--'}</strong>.
+                Attendance marking opens at <strong>8:00 AM WAT</strong> (assembly 7:45 AM, first period 8:15 AM).
+                This page unlocks automatically at 8:00 AM — no refresh needed.
+              </p>
+            </div>
+          </div>
+        )}
+        {beforeSchoolHours && isSuperAdmin && (
+          <div className="bg-green-50 border-2 border-green-300 rounded-lg p-3 mb-6 text-sm text-green-800 font-bold">
+            🛡️ Super Admin override: you may mark attendance before 8:00 AM WAT.
+          </div>
+        )}
 
         {/* ✅ WEEKEND WARNING BANNER */}
         {isWeekend && (
@@ -522,9 +597,9 @@ function TeacherAttendanceContent() {
           <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => handleBulkMark('present')}
-              disabled={isLocked || isWeekend || students.length === 0}
+              disabled={isLocked || uiDisabled || students.length === 0}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-colors ${
-                (isLocked || isWeekend) 
+                (isLocked || uiDisabled) 
                   ? 'bg-gray-400 cursor-not-allowed' 
                   : 'bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed'
               } text-white`}
@@ -533,9 +608,9 @@ function TeacherAttendanceContent() {
             </button>
             <button
               onClick={() => handleBulkMark('holiday')}
-              disabled={isLocked || isWeekend || students.length === 0}
+              disabled={isLocked || uiDisabled || students.length === 0}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-colors ${
-                (isLocked || isWeekend) 
+                (isLocked || uiDisabled) 
                   ? 'bg-gray-400 cursor-not-allowed' 
                   : 'bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed'
               } text-white`}
@@ -572,29 +647,29 @@ function TeacherAttendanceContent() {
                         <div className="flex gap-2 justify-center flex-wrap">
                           <button
                             onClick={() => handleStatusChange(student.id, 'present')}
-                            disabled={isLocked || isWeekend}
-                            className={`${getStatusButtonClass(student.id, 'present')} ${(isLocked || isWeekend) ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
+                            disabled={isLocked || uiDisabled}
+                            className={`${getStatusButtonClass(student.id, 'present')} ${(isLocked || uiDisabled) ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
                           >
                             <CheckCircle size={14} className="inline mr-1"/> Present
                           </button>
                           <button
                             onClick={() => handleStatusChange(student.id, 'absent')}
-                            disabled={isLocked || isWeekend}
-                            className={`${getStatusButtonClass(student.id, 'absent')} ${(isLocked || isWeekend) ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
+                            disabled={isLocked || uiDisabled}
+                            className={`${getStatusButtonClass(student.id, 'absent')} ${(isLocked || uiDisabled) ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
                           >
                             <XCircle size={14} className="inline mr-1"/> Absent
                           </button>
                           <button
                             onClick={() => handleStatusChange(student.id, 'late')}
-                            disabled={isLocked || isWeekend}
-                            className={`${getStatusButtonClass(student.id, 'late')} ${(isLocked || isWeekend) ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
+                            disabled={isLocked || uiDisabled}
+                            className={`${getStatusButtonClass(student.id, 'late')} ${(isLocked || uiDisabled) ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
                           >
                             <Clock size={14} className="inline mr-1"/> Late
                           </button>
                           <button
                             onClick={() => handleStatusChange(student.id, 'holiday')}
-                            disabled={isLocked || isWeekend}
-                            className={`${getStatusButtonClass(student.id, 'holiday')} ${(isLocked || isWeekend) ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
+                            disabled={isLocked || uiDisabled}
+                            className={`${getStatusButtonClass(student.id, 'holiday')} ${(isLocked || uiDisabled) ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
                           >
                             <AlertCircle size={14} className="inline mr-1"/> Holiday
                           </button>
@@ -616,10 +691,10 @@ function TeacherAttendanceContent() {
                           type="text"
                           value={attendance[student.id]?.note || ''}
                           onChange={(e) => handleNoteChange(student.id, e.target.value)}
-                          disabled={isLocked || isWeekend}
+                          disabled={isLocked || uiDisabled}
                           placeholder={isWeekend ? 'Weekend' : isLocked ? 'Locked' : 'Add note...'}
                           className={`w-full p-2 border rounded text-sm ${
-                            (isLocked || isWeekend)
+                            (isLocked || uiDisabled)
                               ? 'bg-gray-200 cursor-not-allowed text-gray-500' 
                               : 'bg-white text-gray-900'
                           }`}
