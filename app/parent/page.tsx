@@ -682,7 +682,7 @@ export default function ParentPortalPage() {
                   student={{
                     full_name: selectedStudent.full_name,
                     admission_number: selectedStudent.admission_number,
-                    class_name: selectedStudent.class_name || 'Unknown',
+                    class_name: reportData?.snapshot_class_name || selectedStudent.class_name || 'Unknown',
                     position: positionInfo ? `${positionInfo.position_text} of ${positionInfo.total_students}` : '-',
                     no_in_class: positionInfo?.total_students || '-'
                   }}
@@ -719,10 +719,11 @@ export default function ParentPortalPage() {
                   healthComment={reportData?.health_comment || 'Student is fit and healthy'}
                   teacherComment={reportData?.teacher_comment || results[0]?.teacher_comment || 'Good performance'}
                   principalComment={reportData?.principal_comment || results[0]?.principal_comment || 'Keep it up'}
-                  teacherSignatureUrl={signUrls.teacher}
-                  principalSignatureUrl={signUrls.principal}
-                  stampUrl={signUrls.stamp}
-                  schoolLogoUrl={signUrls.logo}
+                  teacherSignatureUrl={reportData?.snapshot_teacher_signature_url || signUrls.teacher}
+                  principalSignatureUrl={reportData?.snapshot_principal_signature_url || signUrls.principal}
+                  stampUrl={reportData?.snapshot_stamp_url || signUrls.stamp}
+                  schoolLogoUrl={reportData?.snapshot_logo_url || signUrls.logo}
+                  teacherName={reportData?.snapshot_teacher_name}
                   teacherDate={reportData?.teacher_date || null}
                   headTeacherDate={reportData?.head_teacher_date || null}
                 />

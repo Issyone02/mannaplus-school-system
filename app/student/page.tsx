@@ -27,6 +27,7 @@ export default function StudentDashboardPage() {
   const [positionInfo, setPositionInfo] = useState<any>(null)
   const [ signUrls, setSignUrls ] = useState<{ teacher?: string | null; principal?: string | null; stamp?: string |null }>({})
   const [reportCardAccess, setReportCardAccess] = useState<any>(null)
+  const [reportData, setReportData] = useState<any>(null)
   const [selectedTermFilter, setSelectedTermFilter] = useState<string>('')
   const [selectedSessionFilter, setSelectedSessionFilter] = useState<string>('')
 
@@ -142,6 +143,17 @@ export default function StudentDashboardPage() {
           .single()
         
         setReportCardAccess(accessData || null)
+
+        // ✅ Fetch report card data (includes snapshot if captured)
+        const { data: reportData } = await supabase
+          .from('student_reports')
+          .select('*')
+          .eq('student_id', studentData.id)
+          .eq('term', allResultsData[0].term || 'Third Term')
+          .eq('session', allResultsData[0].session || '2025/2026')
+          .maybeSingle()
+        
+        setReportData(reportData || null)
       }
 
       // ✅ Fetch signatures & stamp for the report card
@@ -483,7 +495,7 @@ export default function StudentDashboardPage() {
               student={{
                 full_name: student.full_name,
                 admission_number: student.admission_number,
-                class_name: student.class?.class_name || 'Unknown',
+                class_name: reportData?.snapshot_class_name || student.class?.class_name || 'Unknown',
                 position: positionInfo ? `${positionInfo.position_text} of ${positionInfo.total_students}` : '-',
                 no_in_class: positionInfo?.total_students || '-'
               }}
@@ -491,14 +503,14 @@ export default function StudentDashboardPage() {
               session={allResults[0]?.session || '2025/2026'}
               term={allResults[0]?.term || 'Third Term'}
               attendance={{
-                opened: attendanceStats?.total || 0,
-                present: attendanceStats?.present || 0,
-                punctual: (attendanceStats?.total || 0) - (attendanceStats?.late || 0),
-                beg_term: '6th April 2026',
-                end_term: '6th July 2026',
-                next_term: ''
+                opened: reportData?.attendance_opened || 0,
+                present: reportData?.attendance_present || 0,
+                punctual: reportData?.attendance_punctual || 0,
+                beg_term: reportData?.term_begins || '6th April 2026',
+                end_term: reportData?.term_ends || '6th July 2026',
+                next_term: reportData?.next_term || ''
               }}
-              conductRatings={{
+              conductRatings={reportData?.conduct_ratings || {
                 'Attentiveness': 'Excellent',
                 'Cleanliness': 'Good',
                 'Emotional Balance': 'Good',
@@ -508,7 +520,7 @@ export default function StudentDashboardPage() {
                 'Politeness': 'Excellent',
                 'Punctuality': 'Excellent'
               }}
-              physicalSkills={{
+              physicalSkills={reportData?.physical_skills || {
                 'Handwriting': 'Good',
                 'Verbal Fluency': 'Good',
                 'Debate/Quiz': 'Good',
@@ -517,12 +529,14 @@ export default function StudentDashboardPage() {
                 'Musical Skills': 'Fair',
                 'Handling Tools': 'Good'
               }}
-              healthComment="Student is fit and healthy"
-              teacherComment={allResults[0]?.teacher_comment || 'Good performance'}
-              principalComment={allResults[0]?.principal_comment || 'Keep it up'}
-              teacherSignatureUrl={signUrls.teacher}
-              principalSignatureUrl={signUrls.principal}
-              stampUrl={signUrls.stamp}
+              healthComment={reportData?.health_comment || 'Student is fit and healthy'}
+              teacherComment={reportData?.teacher_comment || allResults[0]?.teacher_comment || 'Good performance'}
+              principalComment={reportData?.principal_comment || allResults[0]?.principal_comment || 'Keep it up'}
+              teacherSignatureUrl={reportData?.snapshot_teacher_signature_url || signUrls.teacher}
+              principalSignatureUrl={reportData?.snapshot_principal_signature_url || signUrls.principal}
+              stampUrl={reportData?.snapshot_stamp_url || signUrls.stamp}
+              schoolLogoUrl={reportData?.snapshot_logo_url || null}
+              teacherName={reportData?.snapshot_teacher_name}
             />
             )}
 

@@ -188,6 +188,55 @@ export default function ResultsPage() {
     }
   }
 
+  // ✅ CAPTURE SNAPSHOT: Freeze signatures/stamps/class info when unlocking report cards
+  const captureSnapshotForClass = async (classId: string, term: string, session: string) => {
+    try {
+      // Fetch current assets
+      const assets = await getSchoolAssets()
+      const cls = classes.find(c => c.id === classId)
+      const className = cls ? `${cls.class_name} ${cls.arm || ''}`.trim() : 'Unknown'
+      const branding = getBrandingForClass(className, assets)
+
+      // Fetch teacher signature
+      const teacherSignature = await getClassTeacherSignature(classId)
+
+      // Fetch teacher name (form teacher)
+      const { data: teacherData } = await supabase
+        .from('teachers')
+        .select('full_name')
+        .eq('form_class_id', classId)
+        .maybeSingle()
+
+      const teacherName = teacherData?.full_name || 'Class Teacher'
+
+      // Update all student_reports for this class/term/session with snapshot
+      const { error } = await supabase
+        .from('student_reports')
+        .update({
+          snapshot_class_name: className,
+          snapshot_teacher_name: teacherName,
+          snapshot_teacher_signature_url: teacherSignature,
+          snapshot_principal_signature_url: assets.principal_signature?.url || null,
+          snapshot_stamp_url: branding.stampUrl,
+          snapshot_logo_url: branding.logoUrl,
+          snapshot_taken_at: new Date().toISOString()
+        })
+        .eq('term', term)
+        .eq('session', session)
+        .in('student_id', 
+          students
+            .filter(s => s.class_id === classId)
+            .map(s => s.id)
+        )
+
+      if (error) throw error
+      console.log(`✅ Snapshot captured for ${className} (${term} ${session})`)
+    } catch (error) {
+      console.error('Failed to capture snapshot:', error)
+      toast.error('Warning: Snapshot capture failed. Historical signatures may not be preserved.')
+    }
+  }
+
   const saveAccessControl = async () => {
     if (!accessControlClass) {
       toast.error('Please select a class')
@@ -218,6 +267,11 @@ export default function ResultsPage() {
         }, { onConflict: 'class_id,term,session' })
 
       if (error) throw error
+
+      // ✅ CAPTURE SNAPSHOT when unlocking (freeze signatures/stamps/class info)
+      if (accessControlUnlocked) {
+        await captureSnapshotForClass(accessControlClass, accessControlTerm, accessControlSession)
+      }
 
       // ✅ AUDIT LOG
       if (accessControlUnlocked) {

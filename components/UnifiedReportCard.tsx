@@ -28,6 +28,7 @@ interface UnifiedReportCardProps {
   principalSignatureUrl?: string | null
   stampUrl?: string | null
   schoolLogoUrl?: string | null // ✅ NEW: Division-specific logo
+  teacherName?: string | null // ✅ NEW: Snapshot teacher name
   teacherDate?: string | null
   headTeacherDate?: string | null
 }
@@ -280,7 +281,7 @@ export default function UnifiedReportCard(props: UnifiedReportCardProps) {
   <div class="sig">
     <div class="sig-box">
       ${props.teacherSignatureUrl ? `<img src="${props.teacherSignatureUrl}" style="height:32px;object-fit:contain;margin-bottom:1px" alt=""/>` : ''}
-      <div class="sig-line">Class Teacher's Signature</div>Date: ${props.teacherDate ? new Date(props.teacherDate).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'}) : '______________'}
+      <div class="sig-line">${props.teacherName || 'Class Teacher'}</div>Date: ${props.teacherDate ? new Date(props.teacherDate).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'}) : '______________'}
     </div>
     <div class="sig-box">
       ${props.stampUrl ? `<img src="${props.stampUrl}" style="width:120px;height:auto;display:block;margin:0 auto 2px;" alt="School Stamp"/>` : `<div class="stamp">OFFICIAL<br/>SCHOOL<br/>STAMP</div>`}
