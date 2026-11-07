@@ -9,7 +9,7 @@ const isPublicRoute = createRouteMatcher([
   "/news(.*)",
   "/admissions(.*)",
   "/contact(.*)",
-  "/verify(.*)", // ✅ Public verification page
+  "/verify(.*)",
   "/sign-in(.*)",
   "/sign-up(.*)",
 ]);

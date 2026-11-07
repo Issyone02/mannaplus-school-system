@@ -39,14 +39,14 @@ export async function logAuditEvent(params: AuditLogParams) {
 // Helper functions for common actions
 export const auditActions = {
   // Teacher actions
-  teacherMarkAttendance: (userEmail: string, classId: string, date: string, count: number) => 
+  teacherMarkAttendance: (userEmail: string, className: string, date: string, count: number) => 
     logAuditEvent({
       userEmail,
       userRole: 'teacher',
       action: 'mark_attendance',
-      description: `Marked attendance for ${count} students in ${classId.toUpperCase()} on ${date}`,
+      description: `Marked attendance for ${count} students in ${className} on ${date}`,
       entityType: 'attendance',
-      metadata: { classId, date, studentCount: count }
+      metadata: { className, date, studentCount: count }
     }),
 
   teacherEnterResults: (userEmail: string, classId: string, subjectName: string, count: number) =>

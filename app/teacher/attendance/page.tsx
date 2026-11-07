@@ -414,7 +414,11 @@ function TeacherAttendanceContent() {
       }
 
       const email = user?.emailAddresses[0]?.emailAddress || ''
-      await auditActions.teacherMarkAttendance(email, selectedClass, selectedDate, records.length)
+      const selectedClassObj = classes.find(c => c.id === selectedClass)
+      const className = selectedClassObj 
+        ? formatClassName(selectedClassObj)
+        : 'Unknown Class'
+      await auditActions.teacherMarkAttendance(email, className, selectedDate, records.length)
 
       toast.success('Attendance saved successfully!')
       fetchStudentsAndAttendance()

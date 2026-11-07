@@ -342,13 +342,18 @@ export default function AttendancePage() {
       }
 
       // ✅ AUDIT: Log normal attendance saves by admin
+      const selectedClassObj = classes.find(c => c.id === selectedClass)
+      const className = selectedClassObj 
+        ? `${selectedClassObj.class_name} ${selectedClassObj.arm ? `(${selectedClassObj.arm})` : ''}`.trim()
+        : 'Unknown Class'
+
       await logAuditEvent({
         userEmail: adminEmail,
         userRole: 'admin',
         action: 'mark_attendance',
-        description: `Marked attendance for ${recordsToSave.length} students in ${selectedClass.toUpperCase()} on ${selectedDate}`,
+        description: `Marked attendance for ${recordsToSave.length} students in ${className} on ${selectedDate}`,
         entityType: 'attendance',
-        metadata: { classId: selectedClass, date: selectedDate, studentCount: recordsToSave.length },
+        metadata: { className, date: selectedDate, studentCount: recordsToSave.length },
       })
 
       toast.success(`${recordsToSave.length} attendance records saved!`)
