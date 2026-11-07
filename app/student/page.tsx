@@ -42,6 +42,7 @@ export default function StudentDashboardPage() {
   const [ signUrls, setSignUrls ] = useState<{ teacher?: string | null; principal?: string | null; stamp?: string |null }>({})
   const [reportCardAccess, setReportCardAccess] = useState<any>(null)
   const [reportData, setReportData] = useState<any>(null)
+  const [accessRows, setAccessRows] = useState<any[]>([]) // ✅ All lock rows for this class
   const [selectedTermFilter, setSelectedTermFilter] = useState<string>('')
   const [selectedSessionFilter, setSelectedSessionFilter] = useState<string>('')
 
@@ -107,9 +108,18 @@ export default function StudentDashboardPage() {
 
       setStudent(enrichedStudent)
 
+      // ✅ Fetch ALL access-control rows for this class (per-term visibility map)
+      if (studentData.class_id) {
+        const { data: accessAll } = await supabase
+          .from('report_card_access')
+          .select('term, session, is_unlocked, unlock_start_date, unlock_end_date')
+          .eq('class_id', studentData.class_id)
+        setAccessRows(accessAll || [])
+      }
+
       const { data: resultsData } = await supabase
         .from('results')
-        .select(`total_score, grade, term, subject:subjects(name)`)
+        .select(`total_score, grade, term, session, subject:subjects(name)`)
         .eq('student_id', studentData.id)
         .order('created_at', { ascending: false })
         .limit(4)
@@ -277,22 +287,33 @@ export default function StudentDashboardPage() {
     (r: any) => r.term === selectedTermFilter && r.session === selectedSessionFilter
   )
 
-  // ✅ SINGLE SOURCE OF TRUTH: is the report card viewable right now?
-  //  - Lock row exists       → follow it (unlocked AND within date window)
-  //  - No row + CURRENT term → locked by default (results in progress)
-  //  - No row + PAST term    → ALWAYS viewable & printable (historical cards)
+  // ✅ PER-TERM VISIBILITY: lock row wins; no row + current term = locked; no row + past term = open
+  const isComboVisible = (term: string, session: string) => {
+    const row = accessRows.find(r => r.term === term && r.session === session)
+    const now = new Date()
+    if (row) {
+      return !!(
+        row.is_unlocked &&
+        row.unlock_start_date &&
+        row.unlock_end_date &&
+        now >= new Date(row.unlock_start_date) &&
+        now <= new Date(row.unlock_end_date)
+      )
+    }
+    return !(term === getCurrentTerm() && session === getCurrentSession())
+  }
+
+  // ✅ ONLY released terms are ever displayed anywhere on this page
+  const visibleRecentResults = results.filter((r: any) => isComboVisible(r.term, r.session || selectedSessionFilter))
+  const visibleAllResults = allResults.filter((r: any) => isComboVisible(r.term, r.session))
+  const visibleAverage = visibleRecentResults.length > 0
+    ? (visibleRecentResults.reduce((sum: number, r: any) => sum + (r.total_score || 0), 0) / visibleRecentResults.length).toFixed(1)
+    : null
+
   const nowDate = new Date()
   const isCurrentTermSession =
     selectedTermFilter === getCurrentTerm() && selectedSessionFilter === getCurrentSession()
-  const reportCardVisible = reportCardAccess
-    ? !!(
-        reportCardAccess.is_unlocked &&
-        reportCardAccess.unlock_start_date &&
-        reportCardAccess.unlock_end_date &&
-        nowDate >= new Date(reportCardAccess.unlock_start_date) &&
-        nowDate <= new Date(reportCardAccess.unlock_end_date)
-      )
-    : !isCurrentTermSession
+  const reportCardVisible = isComboVisible(selectedTermFilter, selectedSessionFilter)
   const showLockedBanner =
     (reportCardAccess && !reportCardAccess.is_unlocked) ||
     (!reportCardAccess && isCurrentTermSession)
@@ -330,7 +351,7 @@ export default function StudentDashboardPage() {
               <p className="text-orange-100">Admission: {student.admission_number}</p>
             </div>
             <div className="text-right">
-              <div className="text-5xl font-bold mb-2">{average}%</div>
+              <div className="text-5xl font-bold mb-2">{visibleAverage !== null ? `${visibleAverage}%` : '--'}</div>
               <p className="text-orange-100 font-medium">Current Average</p>
             </div>
           </div>
@@ -371,7 +392,7 @@ export default function StudentDashboardPage() {
               <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200">
                 <BookOpen className="w-10 h-10 text-blue-500 mb-4" />
                 <h3 className="text-sm text-gray-600 font-medium mb-1">Average Score</h3>
-                <p className="text-2xl font-bold text-gray-900">{average}%</p>
+                <p className="text-2xl font-bold text-gray-900">{visibleAverage !== null ? `${visibleAverage}%` : '--'}</p>
               </div>
 
               <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200">
@@ -399,10 +420,10 @@ export default function StudentDashboardPage() {
               <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200">
                 <h2 className="text-xl font-bold text-gray-900 mb-4">Recent Results</h2>
                 <div className="space-y-3">
-                  {results.length === 0 ? (
-                    <p className="text-gray-600 text-center py-4">No results available yet</p>
+                  {visibleRecentResults.length === 0 ? (
+                    <p className="text-gray-600 text-center py-4">🔒 Results are hidden until the school releases the report card for this term.</p>
                   ) : (
-                    results.map((result, index) => (
+                    visibleRecentResults.map((result, index) => (
                       <div key={index} className="flex justify-between items-center p-4 bg-gray-50 rounded-lg border border-gray-200">
                         <div>
                           <p className="font-bold text-gray-900">{result.subject?.name || 'Unknown'}</p>
@@ -606,10 +627,10 @@ export default function StudentDashboardPage() {
             />
             )}
 
-            {allResults.length === 0 ? (
+            {visibleAllResults.length === 0 ? (
               <div className="text-center py-8 text-gray-600">
                 <FileText size={48} className="mx-auto text-gray-300 mb-2"/>
-                <p>No results available yet</p>
+                <p>🔒 No released results yet. Scores appear here once the school unlocks a term's report card.</p>
               </div>
             ) : (
               <div className="overflow-x-auto mt-6">
@@ -623,7 +644,7 @@ export default function StudentDashboardPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {allResults.map((result, idx) => (
+                    {visibleAllResults.map((result, idx) => (
                       <tr key={idx} className="border-b hover:bg-gray-50">
                         <td className="p-3 font-bold text-gray-900">{result.subject_name}</td>
                         <td className="p-3 text-center text-gray-700">{result.term}</td>

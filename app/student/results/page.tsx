@@ -31,10 +31,11 @@ export default function StudentResultsPage() {
   const [results, setResults] = useState<any[]>([])
   const [selectedTerm, setSelectedTerm] = useState(getCurrentTerm())
   const [selectedSession, setSelectedSession] = useState(getCurrentSession())
-  const [positionInfo, setPositionInfo] = useState<{ position_text: string; total_students: number } | null>(null)
   const [reportData, setReportData] = useState<any>(null)
-  const [signUrls, setSignUrls] = useState<{ teacher?: string | null; principal?: string | null; stamp?: string | null }>({})
   const [enrichedResults, setEnrichedResults] = useState<any[]>([])
+  const [positionInfo, setPositionInfo] = useState<{ position_text: string; total_students: number } | null>(null)
+  const [reportCardAccess, setReportCardAccess] = useState<any>(null) // ✅ Access control state
+  const [signUrls, setSignUrls] = useState<{ teacher?: string | null; principal?: string | null; stamp?: string | null }>({})
 
   const termOptions = ['First Term', 'Second Term', 'Third Term']
   const generateSessionOptions = () => {
@@ -143,6 +144,7 @@ export default function StudentResultsPage() {
   const fetchReportData = async () => {
     if (!student?.id) return
 
+    // 1. Fetch report data
     const { data: report } = await supabase
       .from('student_reports')
       .select('*')
@@ -150,9 +152,19 @@ export default function StudentResultsPage() {
       .eq('term', selectedTerm)
       .eq('session', selectedSession)
       .single()
-
     setReportData(report || null)
 
+    // 2. ✅ Fetch access control for this class/term/session
+    const { data: accessData } = await supabase
+      .from('report_card_access')
+      .select('*')
+      .eq('class_id', student.class_id)
+      .eq('term', selectedTerm)
+      .eq('session', selectedSession)
+      .single()
+    setReportCardAccess(accessData || null)
+
+    // 3. Position & Signatures
     if (student.class_id) {
       const positions = await calculateClassPositions(student.class_id, selectedTerm, selectedSession)
       setPositionInfo(positions.get(student.id) || null)
@@ -177,6 +189,24 @@ export default function StudentResultsPage() {
   const totalScore = results.reduce((sum, r) => sum + (r.total_score || 0), 0)
   const maxScore = results.length * 100
   const percentage = maxScore > 0 ? ((totalScore / maxScore) * 100).toFixed(1) : '0'
+
+  // ✅ 3-RULE VISIBILITY LOGIC
+  const nowDate = new Date()
+  const isCurrentTermSession = selectedTerm === getCurrentTerm() && selectedSession === getCurrentSession()
+  
+  const reportCardVisible = reportCardAccess
+    ? !!(
+        reportCardAccess.is_unlocked &&
+        reportCardAccess.unlock_start_date &&
+        reportCardAccess.unlock_end_date &&
+        nowDate >= new Date(reportCardAccess.unlock_start_date) &&
+        nowDate <= new Date(reportCardAccess.unlock_end_date)
+      )
+    : !isCurrentTermSession // No row + past term = visible
+
+  const showLockedBanner =
+    (reportCardAccess && !reportCardAccess.is_unlocked) ||
+    (!reportCardAccess && isCurrentTermSession)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -223,36 +253,42 @@ export default function StudentResultsPage() {
               </select>
             </div>
             <div className="flex items-end">
-              <UnifiedReportCard
-                student={{
-                  full_name: student.full_name,
-                  admission_number: student.admission_number,
-                  class_name: student.class_name,
-                  position: positionInfo ? `${positionInfo.position_text} of ${positionInfo.total_students}` : (reportData?.position_in_class || '-'),
-                  no_in_class: reportData?.total_students_in_class || positionInfo?.total_students || '-'
-                }}
-                results={enrichedResults}
-                session={selectedSession}
-                term={selectedTerm}
-                attendance={{
-                  opened: reportData?.attendance_opened ?? 0,
-                  present: reportData?.attendance_present ?? 0,
-                  punctual: reportData?.attendance_punctual ?? 0,
-                  beg_term: reportData?.term_begins || 'N/A',
-                  end_term: reportData?.term_ends || 'N/A',
-                  next_term: reportData?.next_term_begins || 'N/A'
-                }}
-                conductRatings={reportData?.conduct_ratings || {}}
-                physicalSkills={reportData?.physical_skills || {}}
-                healthComment={reportData?.health_comment || 'Student is fit and healthy.'}
-                teacherComment={reportData?.teacher_comment || 'Good performance'}
-                principalComment={reportData?.principal_comment || 'Keep it up'}
-                teacherSignatureUrl={signUrls.teacher}
-                principalSignatureUrl={signUrls.principal}
-                stampUrl={signUrls.stamp}
-                teacherDate={reportData?.teacher_date || null}
-                headTeacherDate={reportData?.head_teacher_date || null}
-              />
+              {reportCardVisible ? (
+                <UnifiedReportCard
+                  student={{
+                    full_name: student.full_name,
+                    admission_number: student.admission_number,
+                    class_name: student.class_name,
+                    position: positionInfo ? `${positionInfo.position_text} of ${positionInfo.total_students}` : (reportData?.position_in_class || '-'),
+                    no_in_class: reportData?.total_students_in_class || positionInfo?.total_students || '-'
+                  }}
+                  results={enrichedResults}
+                  session={selectedSession}
+                  term={selectedTerm}
+                  attendance={{
+                    opened: reportData?.attendance_opened ?? 0,
+                    present: reportData?.attendance_present ?? 0,
+                    punctual: reportData?.attendance_punctual ?? 0,
+                    beg_term: reportData?.term_begins || 'N/A',
+                    end_term: reportData?.term_ends || 'N/A',
+                    next_term: reportData?.next_term_begins || 'N/A'
+                  }}
+                  conductRatings={reportData?.conduct_ratings || {}}
+                  physicalSkills={reportData?.physical_skills || {}}
+                  healthComment={reportData?.health_comment || 'Student is fit and healthy.'}
+                  teacherComment={reportData?.teacher_comment || 'Good performance'}
+                  principalComment={reportData?.principal_comment || 'Keep it up'}
+                  teacherSignatureUrl={signUrls.teacher}
+                  principalSignatureUrl={signUrls.principal}
+                  stampUrl={signUrls.stamp}
+                  teacherDate={reportData?.teacher_date || null}
+                  headTeacherDate={reportData?.head_teacher_date || null}
+                />
+              ) : (
+                <div className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg bg-gray-50 text-gray-500 text-center font-bold flex items-center justify-center gap-2">
+                  🔒 Report Card Locked
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -263,7 +299,7 @@ export default function StudentResultsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 font-medium">Total Subjects</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">{results.length}</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">{reportCardVisible ? results.length : '--'}</p>
               </div>
               <FileText size={32} className="text-blue-600" />
             </div>
@@ -272,7 +308,7 @@ export default function StudentResultsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 font-medium">Total Score</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">{totalScore}/{maxScore}</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">{reportCardVisible ? `${totalScore}/${maxScore}` : '--'}</p>
               </div>
               <TrendingUp size={32} className="text-green-600" />
             </div>
@@ -281,7 +317,7 @@ export default function StudentResultsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 font-medium">Percentage</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">{percentage}%</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">{reportCardVisible ? `${percentage}%` : '--'}</p>
               </div>
               <Calendar size={32} className="text-purple-600" />
             </div>
@@ -291,7 +327,7 @@ export default function StudentResultsPage() {
               <div>
                 <p className="text-sm text-gray-600 font-medium">Position</p>
                 <p className="text-3xl font-bold text-gray-900 mt-1">
-                  {positionInfo ? `${positionInfo.position_text}` : '-'}
+                  {reportCardVisible && positionInfo ? `${positionInfo.position_text}` : '--'}
                 </p>
               </div>
               <TrendingUp size={32} className="text-orange-600" />
@@ -301,29 +337,36 @@ export default function StudentResultsPage() {
 
         {/* Results Table */}
         <div className="bg-white rounded-xl shadow-md overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[800px]">
-              <thead className="bg-gray-50 border-b-2 border-gray-200">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Subject</th>
-                  <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">CA (30)</th>
-                  <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Exam (70)</th>
-                  <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Total</th>
-                  <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Grade</th>
-                  <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Remark</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {results.length === 0 ? (
+          {!reportCardVisible ? (
+            <div className="px-6 py-12 text-center text-gray-500">
+              <FileText size={48} className="mx-auto text-gray-300 mb-4" />
+              <p className="font-bold text-lg text-red-600">🔒 Results Hidden</p>
+              <p className="text-sm mt-2">Results for {selectedTerm} {selectedSession} are hidden until the school releases the report card.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[800px]">
+                <thead className="bg-gray-50 border-b-2 border-gray-200">
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
-                      <FileText size={48} className="mx-auto text-gray-300 mb-4" />
-                      <p className="font-bold">No results available for this term</p>
-                      <p className="text-sm mt-2">Results will appear here once your teacher enters them</p>
-                    </td>
+                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Subject</th>
+                    <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">CA (30)</th>
+                    <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Exam (70)</th>
+                    <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Total</th>
+                    <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Grade</th>
+                    <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Remark</th>
                   </tr>
-                ) : (
-                  results.map((result) => (
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {results.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                        <FileText size={48} className="mx-auto text-gray-300 mb-4" />
+                        <p className="font-bold">No results available for this term</p>
+                        <p className="text-sm mt-2">Results will appear here once your teacher enters them</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    results.map((result) => (
                     <tr key={result.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {result.subject_name}
@@ -352,13 +395,14 @@ export default function StudentResultsPage() {
                       </td>
                     </tr>
                   ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-        {results.length > 0 && (
-          <p className="md:hidden mt-2 text-xs text-gray-500 text-center"> Swipe the table sideways to see Grade & Remark 'n </p>
+        {reportCardVisible && results.length > 0 && (
+          <p className="md:hidden mt-2 text-xs text-gray-500 text-center">Swipe the table sideways to see Grade & Remark</p>
         )}
       </main>
     </div>
