@@ -25,6 +25,22 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const { role } = await request.json();
     if (!ALLOWED_ROLES.includes(role)) return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
 
+    // 🔐 SERVER-SIDE GUARD: never allow demoting the super admin
+    const SUPER_ADMIN_EMAIL = 'olalereisaiah68@gmail.com';
+    const { data: targetUser } = await supabase
+      .from('users')
+      .select('email')
+      .eq('id', id)  // ✅ use 'id' (target user ID from params), not 'userId'
+      .single();
+
+    if (targetUser?.email?.toLowerCase() === SUPER_ADMIN_EMAIL && role !== 'admin') {
+      return NextResponse.json(
+        { error: 'The super admin role is locked and cannot be changed.' },
+        { status: 403 }
+      );
+    }
+    // ✅ END SERVER-SIDE GUARD
+
     // 1. Update Supabase (source of truth)
     const { data: updated, error } = await supabase
       .from('users').update({ role }).eq('id', id).select('clerk_id').single();

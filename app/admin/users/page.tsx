@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Plus, Edit, Trash2, Search, X, Save, UserPlus, Link, Unlink } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, X, Save, UserPlus, Link, Unlink, Download } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
-import { useAuth } from '@clerk/nextjs'; // ✅ Added useAuth
+import { useAuth, useUser } from '@clerk/nextjs';
 
 type UserRole = 'admin' | 'teacher' | 'parent' | 'student';
 
@@ -26,8 +26,12 @@ interface ClassItem {
   department: string | null;
 }
 
+// 🔐 The developer / super admin account. Role is locked & protected.
+const SUPER_ADMIN_EMAIL = 'olalereisaiah68@gmail.com';
+
 export default function UserManagementPage() {
-  const { getToken } = useAuth(); // ✅ Added getToken
+  const { getToken } = useAuth();
+  const { user: currentUser } = useUser(); // ✅ Get current logged-in user
   const [users, setUsers] = useState<AppUser[]>([]);
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -226,24 +230,38 @@ export default function UserManagementPage() {
   };
 
   const handleDelete = async (user: AppUser) => {
-    // 🔐 SECURITY: Block deleting admins from UI
-    if (user.role === 'admin') {
-      toast.error('Admin accounts cannot be deleted. Contact system administrator for emergency removal.');
+    const currentEmail = currentUser?.primaryEmailAddress?.emailAddress?.toLowerCase() || '';
+    const SUPER_ADMIN_EMAIL = 'olalereisaiah68@gmail.com';
+    const isSuperAdmin = currentEmail === SUPER_ADMIN_EMAIL;
+
+    // 🔐 SECURITY: Block deleting the super admin (developer) account
+    if (user.email.toLowerCase() === SUPER_ADMIN_EMAIL) {
+      toast.error('Super admin account cannot be deleted. This is the developer account.');
       return;
     }
 
-    // Simple, clean confirmation instead of a password prompt
-    if (!confirm(`Are you sure you want to delete "${user.full_name}"?\n\nThis action cannot be undone.`)) {
+    // 🔐 SECURITY: Only super admin can delete other admins
+    if (user.role === 'admin' && !isSuperAdmin) {
+      toast.error('Only the super admin can delete admin accounts.');
+      return;
+    }
+
+    // Confirmation dialog
+    const confirmMsg = user.role === 'admin'
+      ? `⚠️ You are about to delete an ADMIN account: "${user.full_name}"\n\nThis will remove all their access and cannot be undone. Continue?`
+      : `Are you sure you want to delete "${user.full_name}"?\n\nThis action cannot be undone.`;
+
+    if (!confirm(confirmMsg)) {
       return;
     }
 
     try {
-      const token = await getToken(); // ✅ Get Clerk token
+      const token = await getToken();
       const response = await fetch('/api/users/delete', {
         method: 'DELETE',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`, // ✅ Added Authorization header
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           userId: user.id,
@@ -262,8 +280,15 @@ export default function UserManagementPage() {
 
   
   const handleUpdateRole = async (userId: string, newRole: UserRole) => {
+    // 🔐 Never allow demoting the super admin
+    const target = users.find(u => u.id === userId);
+    if (target && target.email.toLowerCase() === SUPER_ADMIN_EMAIL && newRole !== 'admin') {
+      toast.error('The super admin role cannot be changed.');
+      return;
+    }
+
     try {
-      const token = await getToken(); // ✅ already imported via useAuth earlier
+      const token = await getToken();
       const res = await fetch(`/api/users/${userId}/role`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -343,6 +368,37 @@ export default function UserManagementPage() {
     );
   });
 
+  // ✅ STATS CALCULATION
+  const stats = {
+    total: users.length,
+    admin: users.filter(u => u.role === 'admin').length,
+    teacher: users.filter(u => u.role === 'teacher').length,
+    parent: users.filter(u => u.role === 'parent').length,
+    student: users.filter(u => u.role === 'student').length,
+  };
+
+  // ✅ EXPORT CSV FUNCTION
+  const exportToCSV = () => {
+    const headers = ['Full Name', 'Email', 'Role', 'Phone', 'Status', 'Created At'];
+    const rows = filteredUsers.map(u => [
+      u.full_name,
+      u.email,
+      u.role,
+      u.phone || '',
+      u.active ? 'Active' : 'Inactive',
+      new Date(u.created_at).toLocaleDateString()
+    ]);
+    const csv = [headers.join(','), ...rows.map(r => r.map(cell => `"${cell}"`).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `users_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+    toast.success('User list exported!');
+  };
+
   if (loading) return <div className="p-8 text-gray-900 font-bold">Loading users...</div>;
 
   return (
@@ -353,11 +409,41 @@ export default function UserManagementPage() {
           <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
           <p className="text-gray-600 mt-1 font-medium">Create and manage users with automatic Clerk integration</p>
         </div>
-        <button onClick={() => { setEditingUser(null); setFormData({ email: '', full_name: '', role: 'teacher', phone: '', password: '' }); setShowModal(true); }} className="flex items-center justify-center space-x-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 font-bold w-full md:w-auto">
-          <UserPlus size={20} />
-          <span>Create New User</span>
-        </button>
+        <div className="flex gap-3 w-full md:w-auto justify-center md:justify-end">
+          <button onClick={exportToCSV} className="flex items-center justify-center space-x-2 bg-gray-600 text-white px-4 py-3 rounded-lg hover:bg-gray-700 font-bold w-full md:w-auto">
+            <Download size={18} />
+            <span>Export CSV</span>
+          </button>
+          <button onClick={() => { setEditingUser(null); setFormData({ email: '', full_name: '', role: 'teacher', phone: '', password: '' }); setShowModal(true); }} className="flex items-center justify-center space-x-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 font-bold w-full md:w-auto">
+            <UserPlus size={20} />
+            <span>Create New User</span>
+          </button>
+        </div>
       </div>
+      {/* ✅ STATS DASHBOARD */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4 mb-6">
+        <div className="bg-white rounded-xl shadow-md p-4 border-2 border-gray-200">
+          <h3 className="text-2xl font-bold text-gray-900">{stats.total}</h3>
+          <p className="text-gray-600 text-xs md:text-sm font-medium text-center">Total Users</p>
+        </div>
+        <div className="bg-red-50 rounded-xl shadow-md p-4 border-2 border-red-200">
+          <h3 className="text-2xl font-bold text-red-900">{stats.admin}</h3>
+          <p className="text-red-600 text-xs md:text-sm font-medium text-center">Admins</p>
+        </div>
+        <div className="bg-blue-50 rounded-xl shadow-md p-4 border-2 border-blue-200">
+          <h3 className="text-2xl font-bold text-blue-900">{stats.teacher}</h3>
+          <p className="text-blue-600 text-xs md:text-sm font-medium text-center">Teachers</p>
+        </div>
+        <div className="bg-purple-50 rounded-xl shadow-md p-4 border-2 border-purple-200">
+          <h3 className="text-2xl font-bold text-purple-900">{stats.parent}</h3>
+          <p className="text-purple-600 text-xs md:text-sm font-medium text-center">Parents</p>
+        </div>
+        <div className="bg-green-50 rounded-xl shadow-md p-4 border-2 border-green-200">
+          <h3 className="text-2xl font-bold text-green-900">{stats.student}</h3>
+          <p className="text-green-600 text-xs md:text-sm font-medium text-center">Students</p>
+        </div>
+      </div>
+
       <div className="mb-6 flex flex-col md:flex-row gap-4">
         <div className="relative md:max-w-md flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
@@ -391,24 +477,38 @@ export default function UserManagementPage() {
           </thead>
           <tbody>
             {filteredUsers.length === 0 ? (
-              <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-600 font-medium">
-                {filterClass ? 'No users found for this class. Try a different class or clear the filter.' : 'No users found. Create your first user!'}
-              </td></tr>
+              <tr>
+                <td colSpan={6} className="px-6 py-8 text-center text-gray-600 font-medium">
+                  {filterClass ? 'No users found for this class. Try a different class or clear the filter.' : 'No users found. Create your first user!'}
+                </td>
+              </tr>
             ) : (
               filteredUsers.map((user) => (
                 <tr key={user.id} className="border-b border-gray-200 hover:bg-gray-50">
                   <td className="px-6 py-4">
                     <div className="font-bold text-gray-900">{user.full_name}</div>
-                    <div className="text-xs text-gray-500 font-mono mt-1">{user.clerk_id?.startsWith('user_') ? '✅ Clerk Linked' : '⚠️ Pending'}</div>
+                    <div className="text-xs text-gray-500 font-mono mt-1">{user.clerk_id?.startsWith('user_') ? '✅ Clerk Linked' : '️ Pending'}</div>
                   </td>
                   <td className="px-6 py-4"><span className="truncate-text text-gray-900 font-medium" title={user.email}>{user.email}</span></td>
                   <td className="px-6 py-4">
-                    <select value={user.role} onChange={(e) => handleUpdateRole(user.id, e.target.value as UserRole)} className="px-2 md:px-3 py-1 border-2 border-gray-300 rounded-lg text-xs md:text-sm text-gray-900 font-bold focus:ring-2 focus:ring-green-500">
-                      <option value="admin">🏢 Admin</option>
-                      <option value="teacher">👨‍🏫 Teacher</option>
-                      <option value="parent">👨‍👩‍👦 Parent</option>
-                      <option value="student">🎓 Student</option>
-                    </select>
+                    {user.email.toLowerCase() === SUPER_ADMIN_EMAIL ? (
+                      user.role === 'admin' ? (
+                        <span className="px-2 md:px-3 py-1 inline-block border-2 border-red-300 bg-red-50 rounded-lg text-xs md:text-sm text-red-800 font-bold cursor-not-allowed select-none" title="Super admin role is locked">
+                          🏢 Super Admin (Locked)
+                        </span>
+                      ) : (
+                        <button onClick={() => handleUpdateRole(user.id, 'admin')} className="px-2 md:px-3 py-1 border-2 border-red-400 bg-red-100 rounded-lg text-xs md:text-sm text-red-800 font-bold hover:bg-red-200" title="Restore super admin">
+                          ⚠️ Restore to Admin
+                        </button>
+                      )
+                    ) : (
+                      <select value={user.role} onChange={(e) => handleUpdateRole(user.id, e.target.value as UserRole)} className={`px-2 md:px-3 py-1 border-2 rounded-lg text-xs md:text-sm text-gray-900 font-bold focus:ring-2 focus:ring-green-500 transition-colors ${user.role === 'admin' ? 'border-red-300 bg-red-50' : user.role === 'teacher' ? 'border-blue-300 bg-blue-50' : user.role === 'parent' ? 'border-purple-300 bg-purple-50' : 'border-green-300 bg-green-50'}`}>
+                        <option value="admin">🏢 Admin</option>
+                        <option value="teacher">👨‍ Teacher</option>
+                        <option value="parent">👨‍‍ Parent</option>
+                        <option value="student">🎓 Student</option>
+                      </select>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-gray-900">{user.phone || '—'}</td>
                   <td className="px-6 py-4">
@@ -418,9 +518,13 @@ export default function UserManagementPage() {
                   </td>
                   <td className="px-3 md:px-6 py-4">
                     <div className="flex space-x-1 md:space-x-2">
-                      {user.role === 'student' && (<button onClick={() => openLinkModal(user)} className="p-1.5 md:p-2 text-blue-600 hover:bg-blue-50 rounded font-bold" title="Link to Student"><Link size={18} /></button>)}
+                      {user.role === 'student' && (
+                        <button onClick={() => openLinkModal(user)} className="p-1.5 md:p-2 text-blue-600 hover:bg-blue-50 rounded font-bold" title="Link to Student"><Link size={18} /></button>
+                      )}
                       <button onClick={() => { setEditingUser(user); setFormData({ email: user.email, full_name: user.full_name, role: user.role, phone: user.phone || '', password: '' }); setShowModal(true); }} className="p-1.5 md:p-2 text-green-600 hover:bg-green-50 rounded font-bold" title="Edit"><Edit size={18} /></button>
-                      <button onClick={() => handleDelete(user)} className="p-1.5 md:p-2 text-red-600 hover:bg-red-50 rounded font-bold" title="Delete User"><Trash2 size={18} /></button>
+                      {user.email.toLowerCase() !== SUPER_ADMIN_EMAIL && (
+                        <button onClick={() => handleDelete(user)} className="p-1.5 md:p-2 text-red-600 hover:bg-red-50 rounded font-bold" title="Delete User"><Trash2 size={18} /></button>
+                      )}
                     </div>
                   </td>
                 </tr>
